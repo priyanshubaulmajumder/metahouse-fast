@@ -4,12 +4,12 @@ from sqlalchemy import select, func, and_, text
 from datetime import date, datetime
 import pytz
 from decimal import Decimal
-from app.models.stock_models import Stock, StockBSEHistPriceData, StockNSEHistPriceData
-from app.schemas.stock_schemas import StockHistPriceDataBase
+from app.models.stock import Stock, StockBSEHistPriceData, StockNSEHistPriceData
+from app.schemas.stock import StockHistPriceDataBase
 from app.core.config import settings
 from app.utils.constants import ExchangeChoices, WHistoricalStockPricesField
 from app.utils.constants import WCompanyMasterField
-from app.services.modal_generic_service import ModalGenericService
+from app.services.modal_generic import ModalGenericService
 from app.services.response_data_process_service import ResponseDataProcessService
 from app.utils.helpers import get_decimal
 

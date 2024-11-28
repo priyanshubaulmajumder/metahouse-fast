@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.deps import get_db
-from app.services.screener_service import ScreenerService
+from app.services.screener import ScreenerService
 from typing import List
-from app.schemas.screener_schemas import ScreenerResponse
+from app.schemas.screener import ScreenerResponse
 
 router = APIRouter()
 

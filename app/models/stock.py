@@ -417,6 +417,24 @@ class StockBSEHistPriceData(Base):
         UniqueConstraint('wstockcode', 'price_date', name='uq_sbsehp_wstockcode_price_date'),
     )
 
+class StockManagementInfo(Base):
+    __tablename__ = "stock_management_info"
+
+    wstockcode = Column(String(28), ForeignKey('stocks.wstockcode'), primary_key=True)
+    director = Column(JSON, nullable=True)
+    chairman_and_managing_director = Column(String(50), nullable=True)
+    address = Column(Text, nullable=True)
+    telephone = Column(String(18), nullable=True)
+    fax_number = Column(String(12), nullable=True)
+    email = Column(String(254), nullable=True)
+    website = Column(String(50), nullable=True)
+
+    stock = relationship("Stock", back_populates="management_info")
+
+    __table_args__ = (
+        Index('ix_smi_wstockcode_11', 'wstockcode'),
+    )
+    
 class StockWCategoryMapping(Base):
     __tablename__ = "stock_wcategory_mapping"
 

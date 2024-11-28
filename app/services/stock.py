@@ -3,15 +3,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, func, and_
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import date, datetime
-from app.models.stock_models import Stock, StockWCategoryMapping
-from app.schemas.stock_schemas import StockResponse, StockFundamentalsResponse, ShareHoldingPatternResponse, FinancialsOverviewResponse, DetailedFinancialsResponse
+from app.models.stock import Stock, StockWCategoryMapping
+from app.schemas.stock import StockResponse, StockFundamentalsResponse, ShareHoldingPatternResponse, FinancialsOverviewResponse, DetailedFinancialsResponse
 from app.core.config import settings
 from app.utils.constants import ExchangeChoices
 #from app.utils.cache import cache
 from app.utils.helpers import get_decimal
 #from app.services.modal_generic_service import ModalGenericService
 from app.services.response_data_process_service import ResponseDataProcessService
-from app.services.stock_hist_service import StockHistPriceService
+from app.services.stock_hist import StockHistPriceService
 
 class StockService:
     def __init__(self, db: AsyncSession):
@@ -177,3 +177,4 @@ class StockService:
             "three_years": stock.returns_three_years,
             "five_years": stock.returns_five_years
         }
+

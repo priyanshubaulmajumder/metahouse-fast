@@ -80,3 +80,28 @@ class WCompanyMasterField(str, Enum):
     BSEListedFlag = "bse_listed_flag"
     NSEListedFlag = "nse_listed_flag"
     DisplayType = "display_type"
+
+class WHistoricalNAVField(str, Enum):
+    MfCoCode = 'mf_cocode'
+    CmotsID = 'cmots_id'
+    NAVDate = 'nav_date'
+    NAV = 'nav'
+    AdjNAV = 'adj_nav'
+
+class NavTypeChoices(str, Enum):
+    Nav = 'n'
+    AdjNav = 'an'
+
+class WShareHoldingEntity(str, Enum):
+    Overview = 'overview'
+    Promoters = 'promoters'
+    FII = 'fii'
+    DII = 'dii'
+    Others = 'others'
+    
+class WHistoricalNAVField(str, Enum):
+    MfCoCode = "mf_cocode"
+    CmotsID = "cmots_id"
+    NAVDate = "nav_date"
+    NAV = "nav"
+    AdjNAV = "adj_nav"

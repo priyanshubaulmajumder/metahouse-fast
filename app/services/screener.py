@@ -1,11 +1,11 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
-from app.models.screener_models import Screener, ScreenerInstrument
-from app.models.stock_models import Stock
-from app.models.scheme_models import Scheme
-from app.schemas.screener_schemas import ScreenerResponse, ScreenerInstrumentResponse
-from app.schemas.stock_schemas import StockResponse
-from app.schemas.scheme_schemas import SchemeSerializer as SchemeResponse
+from app.models.screener import Screener, ScreenerInstrument
+from app.models.stock import Stock
+from app.models.scheme import Scheme
+from app.schemas.screener import ScreenerResponse, ScreenerInstrumentResponse
+from app.schemas.stock import StockResponse
+from app.schemas.scheme import SchemeSerializer as SchemeResponse
 from typing import List, Optional
 from app.core.config import settings
 #from app.utils.cache import cache
@@ -132,3 +132,14 @@ class ScreenerService:
         return screeners
 
 
+
+#question
+
+#q1 q2 q3 q4 q5 q6
+
+#   q2value q4value
+#  
+
+# q1 q2 q3 q4 q5 q6 q7
+# q1 
+# q1 

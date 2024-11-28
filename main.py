@@ -2,8 +2,11 @@ from fastapi import FastAPI
 from app.api.v1.router import api_router
 from app.core.config import settings
 import uvicorn
+from app.db.base import validate_database
 
-app = FastAPI(title="Stock Screener API")
+validate_database()
+
+app = FastAPI(title=settings.PROJECT_NAME)
 
 app.include_router(api_router, prefix="/api/v1")
 

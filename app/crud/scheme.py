@@ -5,7 +5,7 @@ from datetime import date
 from enum import Enum
 
 # Import the necessary enums from your original schema file
-from app.schemas.scheme_schemas import SchemeType, LockInUnitType, SchemeNature, MainCategory, ExitLoadUnitType, TaxationType
+from app.schemas.scheme import SchemeType, LockInUnitType, SchemeNature, MainCategory, ExitLoadUnitType, TaxationType
 
 class SchemeCreate(BaseModel):
     wschemecode: str

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, validator
 from typing import Optional, List, Dict
 from datetime import date, datetime
 from decimal import Decimal
@@ -14,10 +14,11 @@ class LockInUnitType(str, Enum):
     Months = 'M'
     Years = 'Y'
 
-class SchemeNature(str, Enum):
-    Open = 'O'
-    Close = 'C'
-
+class SchemeNatureEnum(str, Enum):
+    Open = 'Open'
+    Close = 'Close'
+    Interval = 'Interval'
+    
 class MainCategory(str, Enum):
     Equity = 'E'
     Debt = 'D'
@@ -32,6 +33,125 @@ class ExitLoadUnitType(str, Enum):
 class TaxationType(str, Enum):
     Equity = 'E'
     Debt = 'D'
+
+class SchemeIDGenerator(BaseModel):
+    generated_id: int
+    class Config:
+        from_attributes = True
+        
+class SchemeHistNavData(BaseModel):
+    wpc: str
+    nav_date: datetime
+    nav: float
+    adj_nav: float
+    diff: float
+    percentage_change: float
+    class Config:
+        from_attributes = True
+
+class WPCToTWPCMapping(BaseModel):
+    external_id: str
+    wpc: str
+    target_wpc: str
+    hidden: bool
+    class Config:
+        from_attributes = True
+
+
+class SectorToWSectorMapping(BaseModel):
+    external_id: str
+    sector: str
+    wsector: str
+    class Config:
+        from_attributes = True
+
+
+class SchemeHolding(BaseModel):
+    scheme_id: int
+    holding_id: int
+    holding_percentage: float
+    class Config:
+        from_attributes = True
+
+
+class WSchemeCodeWPCMapping(BaseModel):
+    wscheme_code: str
+    wpc: str
+    class Config:
+        from_attributes = True
+
+
+class SchemeCodeWPCMapping(BaseModel):
+    scheme_code: str
+    wpc: str
+    class Config:
+        from_attributes = True
+
+
+class WPCWPCMapping(BaseModel):
+    wpc: str
+    target_wpc: str
+    class Config:
+        from_attributes = True
+
+
+class ParentChildSchemeMapping(BaseModel):
+    parent_scheme_id: int
+    child_scheme_id: int
+    class Config:
+        from_attributes = True
+
+
+class SchemeAudit(BaseModel):
+    scheme_id: int
+    audit_date: datetime
+    audit_result: str
+    class Config:
+        from_attributes = True
+
+
+class SchemeNature(BaseModel):
+    nature: SchemeNatureEnum
+    class Config:
+        from_attributes = True
+
+
+class Scheme(BaseModel):
+    id: int
+    name: str
+    third_party_id: str
+    isin: Optional[str]
+    amfi_code: Optional[str]
+    scheme_code: Optional[str]
+    wschemecode: Optional[str]
+    deprecate_reason: Optional[str]
+    w_rating: float
+    w_score: float
+    w_return_score: float
+    w_risk_score: float
+    w_valuation_score: float
+    w_credit_quality_score: float
+    ratings_as_on: Optional[datetime]
+    wealthy_select: bool
+
+    @validator('third_party_id')
+    def validate_third_party_id(cls, v):
+        if not v:
+            raise ValueError('third_party_id cannot be empty')
+        return v
+    class Config:
+        from_attributes = True
+
+
+class SchemeUniqueIDsCacheService(BaseModel):
+    cache_key: str
+    cache_value: str
+    class Config:
+        from_attributes = True
+
+
+class SchemeResponse(Scheme):
+    pass
 
 class SchemeSerializer(BaseModel):
     wschemecode: str
@@ -60,7 +180,7 @@ class SchemeSerializer(BaseModel):
     fund_manager: Optional[str]
     fund_manager_profile: Optional[str]
     objective: Optional[str]
-    scheme_nature: SchemeNature = SchemeNature.Open
+    scheme_nature: SchemeNatureEnum = SchemeNatureEnum.Open
     fund_type: MainCategory = MainCategory.Equity
     amc: Optional[str]
     exit_load_time: Optional[int]
@@ -92,9 +212,9 @@ class SchemeSerializer(BaseModel):
     wealthy_select: bool = False
     created_at: datetime
     updated_at: datetime
-
+    scheme_nature: SchemeNatureEnum = SchemeNatureEnum.Open
     class Config:
-        orm_mode = True
+        from_attributes = True
 
     @field_validator('wschemecode')
     @classmethod
@@ -153,7 +273,7 @@ class SchemeHoldingSerializer(BaseModel):
     reported_sector: Optional[str]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
     @field_validator('wpc')
     @classmethod
@@ -170,9 +290,3 @@ class SchemeHoldingSerializer(BaseModel):
         return v
 
 SchemeResponse = SchemeSerializer
-
-
-
-
-class SchemeResponse(SchemeSerializer):
-    pass 

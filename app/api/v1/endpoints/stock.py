@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from app.schemas.stock_schemas import StockResponse, PaginatedStockResponse, StockFundamentalsResponse, ShareHoldingPatternResponse, FinancialsOverviewResponse, DetailedFinancialsResponse
-from app.services.stock_service import StockService
+from app.schemas.stock import StockResponse, PaginatedStockResponse, StockFundamentalsResponse, ShareHoldingPatternResponse, FinancialsOverviewResponse, DetailedFinancialsResponse
+from app.services.stock import StockService
 from app.deps import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
