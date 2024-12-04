@@ -22,16 +22,16 @@ class LockInUnitType(PyEnum):
     Years = 'Y'
 
 class SchemeIDGenerator(Base):
-    __tablename__ = "scheme_id_generator"
+    __tablename__ = "funnal_schemeidgenerator"
     generated_id = Column(Integer, primary_key=True, autoincrement=True)
 
 
 
 class Scheme(Base):
-    __tablename__ = "schemes"
+    __tablename__ = "funnal_scheme"
 
     wschemecode = Column(String(28), primary_key=True)
-    wpc =  wpc = WealthyProductCodeField(prefix="MF", Modal=SchemeIDGenerator, max_length=12)
+    wpc =   WealthyProductCodeField(prefix="MF", Modal=SchemeIDGenerator, max_length=12)
     third_party_id = Column(String(10), nullable=True)  # CMOTS equivalent mf_cocode, used to determine amc
     isin = Column(String(20), nullable=True)
     isin_reinvestment = Column(String(20), nullable=True)
@@ -228,7 +228,7 @@ class Scheme(Base):
 
 
 class SchemeAudit(Base):
-    __tablename__ = "scheme_audits"
+    __tablename__ = "funnal_schemeaudit"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     wpc = Column(String(12), nullable=True)
@@ -292,7 +292,9 @@ class SchemeAudit(Base):
     requestor_code = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
+    #ideally etao chilo na dont know why eta add hoyeche
+    #holdings = relationship("SchemeHolding", back_populates="scheme")
+     
     @property
     def is_payment_allowed(self):
         if self.deprecated_at:
@@ -330,10 +332,11 @@ class SchemeAudit(Base):
     )
 
 class SchemeHolding(Base):
-    __tablename__ = "scheme_holdings"
+    __tablename__ = "funnal_schemeholding"
 
     external_id = Column(WealthyExternalIdField(prefix="sch_holding_"), primary_key=True)
-    wpc = Column(String(12), ForeignKey("schemes.wpc"))
+    #wpc = Column(String(12), ForeignKey("schemes.wpc"))
+    wpc = Column(String(12))
     portfolio_date = Column(Date)
     holding_third_party_id = Column(String(10), nullable=False)
     holding_trading_symbol = Column(String(50))
@@ -349,7 +352,7 @@ class SchemeHolding(Base):
     isin = Column(String(20))
     reported_sector = Column(String(70))
 
-    scheme = relationship("Scheme", back_populates="holdings")
+    ##scheme = relationship("Scheme", back_populates="holdings")
 
     __table_args__ = (
         Index('idx_sh_wpc_876', 'wpc'),
@@ -375,7 +378,7 @@ class WSchemeCodeWPCMapping(Base):
 
 
 class SchemeCodeWPCMapping(Base):
-    __tablename__ = "scheme_code_wpc_mapping"
+    __tablename__ = "funnal_schemecodewpcmapping"
 
     external_id = Column(WealthyExternalIdField(prefix="sc_wpc_map_"), primary_key=True)
     scheme_code = Column(String(20), nullable=False)
@@ -389,7 +392,7 @@ class SchemeCodeWPCMapping(Base):
 
 
 class ParentChildSchemeMapping(Base):
-    __tablename__ = "parent_child_scheme_mapping"
+    __tablename__ = "funnal_parentchildschememapping"
 
     external_id = Column(WealthyExternalIdField(prefix="par_ch_sch_map_"), primary_key=True)
     child_wpc = Column(String(12), nullable=False)
@@ -402,7 +405,7 @@ class ParentChildSchemeMapping(Base):
     )
 
 class SectorToWSectorMapping(Base):
-    __tablename__ = "sector_to_wsector_mapping"
+    __tablename__ = "funnal_sectortowsectormapping"
 
     external_id = Column(WealthyExternalIdField(prefix="sctwsc_map_"), primary_key=True)
     sector = Column(String(60), unique=True)
@@ -413,12 +416,19 @@ class SectorToWSectorMapping(Base):
         Index('ix_stwm_wsct_785', 'wsector'),
     )
 
-Scheme.holdings = relationship("SchemeHolding", back_populates="scheme")
+    # def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
+    #     cache_key = CacheKeysService.sector_to_wsector_mapping_cache_key()
+    #     cache.delete(cache_key)
+    #     super(SectorToWSectorMapping, self).save(
+    #         force_insert=force_insert, force_update=force_update, using=using, update_fields=update_fields
+    #     )
+    
+#Scheme.holdings = relationship("SchemeHolding", back_populates="scheme")
 
 
 
 class SchemeHistNavData(Base):
-    __tablename__ = "scheme_hist_nav_data"
+    __tablename__ = "funnal_schemehistnavdata"
 
     wpc = Column(String(12), nullable=False)
     nav_date = Column(Date, nullable=False)
@@ -433,7 +443,7 @@ class SchemeHistNavData(Base):
     )
     
 class WPCToTWPCMapping(Base):
-    __tablename__ = "wpc_to_twpc_mapping"
+    __tablename__ = "funnal_wpctotwpcmapping"
 
     external_id = Column(WealthyExternalIdField(prefix="wpc_wpc_map_"), primary_key=True)
     wpc = Column(String(12), nullable=False)

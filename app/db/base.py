@@ -1,50 +1,105 @@
 '''
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+import contextlib
+from typing import Any, AsyncIterator
+
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
-from sqlalchemy import create_engine
-from sqlalchemy_utils import database_exists, create_database
 from app.core.config import settings
-import psycopg2
-import psycopg2_pool
+from app.models import *  # Import all your models
 
+# Create a base class for your declarative models
 Base = declarative_base()
+# engine = create_async_engine(settings.postgres_database_uri, echo=settings.ECHO_SQL)
 
-def validate_database():
-    # Use a synchronous engine for database existence check and creation
-    sync_engine = create_engine(settings.SQLALCHEMY_DATABASE_URI.replace('asyncpg', 'psycopg2'))
-    if not database_exists(sync_engine.url):
-        create_database(sync_engine.url)
-        print("New database is created")
-    else:
-        print("Database already exists")
+
+async_session = sessionmaker(
+    engine, class_=AsyncSession, expire_on_commit=False
+)
+
+class DatabaseSessionManager:
+    def __init__(self, host: str, engine_kwargs: dict[str, Any] | None = None):
+        # Initialize the engine with the provided host and engine arguments
+        if engine_kwargs is None:
+            engine_kwargs = {}
+        self._engine = create_async_engine(host, **engine_kwargs)
+        # Create a sessionmaker bound to the engine for creating sessions
+        self._sessionmaker = sessionmaker(
+            bind=self._engine,
+            class_=AsyncSession,
+            expire_on_commit=False,
+            autocommit=False,
+            autoflush=False,
+        )
+
         
-    # Create all tables if they do not exist
-    Base.metadata.create_all(sync_engine)
-    print("All tables are created")
+    async def close(self):
+        # Close the engine and dispose of the sessionmaker
+        if self._engine is None:
+            raise Exception("DatabaseSessionManager is not initialized")
+        await self._engine.dispose()
+        self._engine = None
+        self._sessionmaker = None
 
-# Import all your models here so that Base has them before calling create_all
-from app.models import *
+    @contextlib.asynccontextmanager
+    async def session(self) -> AsyncIterator[AsyncSession]:
+        # Provide an asynchronous session context manager
+        if self._sessionmaker is None:
+            raise Exception("DatabaseSessionManager is not initialized")
+        async with self._sessionmaker() as session:
+            try:
+                yield session  # Yield the session to the caller
+            except Exception:
+                await session.rollback()  # Roll back the transaction on error
+                raise
+            finally:
+                await session.close()  # Close the session after use
+
+# Instantiate the DatabaseSessionManager with the database URI and engine options
+sessionmanager = DatabaseSessionManager(
+    settings.postgres_database_uri,
+    {"echo": settings.ECHO_SQL, "future": True},  # Use settings.ECHO_SQL
+)
 
 
+async def get_idb() -> AsyncIterator[AsyncSession]:
+    async with sessionmanager.session() as session:
+        yield session
+        
+    
+
+async def get_db() -> AsyncSession:
+    return await anext(get_idb())
+
+async def get_session() -> AsyncIterator[AsyncSession]:
+    postgres_database_uri = "postgresql+psycopg2://postgres:root@localhost:5432/metahouse"
+    sessionmanager = DatabaseSessionManager(
+        postgres_database_uri,
+        {"echo": True , "future": True},  # Use settings.ECHO_SQL
+    )
+    async with sessionmanager.session() as session:
+        yield session
+
+'''
+# base.py
 
 import contextlib
 from typing import Any, AsyncIterator
 
-from sqlalchemy.ext.asyncio import (
-    AsyncConnection,
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine
-)
+from sqlalchemy.ext.asyncio import (AsyncConnection, AsyncSession,
+                                    async_sessionmaker, create_async_engine)
 from sqlalchemy.orm import declarative_base
-from sqlalchemy_utils import database_exists, create_database
-from app.core.config import settings
-from app.models import *
-#from utils.logger import GetLogger
 
-#logger = GetLogger(__name__)
+from app.core.config import settings
+from app.models import *  # Import all your models
+# from utils.logger import GetLogger
+
+# logger = GetLogger(__name__)
 
 Base = declarative_base()
+engine = create_async_engine(settings.postgres_database_uri, echo=settings.ECHO_SQL)
+async_session = async_sessionmaker(
+    engine, class_=AsyncSession, expire_on_commit=False
+)
 
 class DatabaseSessionManager:
     def __init__(self, host: str, engine_kwargs: dict[str, Any] | None = None):
@@ -52,7 +107,10 @@ class DatabaseSessionManager:
             engine_kwargs = {}
         self._engine = create_async_engine(host, **engine_kwargs)
         self._sessionmaker = async_sessionmaker(
-            autocommit=False, autoflush=False, bind=self._engine
+            bind=self._engine,
+            autocommit=False,
+            autoflush=False,
+            expire_on_commit=False,
         )
 
     async def close(self):
@@ -79,32 +137,17 @@ class DatabaseSessionManager:
         if self._sessionmaker is None:
             raise Exception("DatabaseSessionManager is not initialized")
 
-        session = self._sessionmaker()
-        try:
-            yield session
-        except Exception as e:
-            await session.rollback()
-            raise e
-        finally:
-            await session.close()
+        async with self._sessionmaker() as session:
+            try:
+                yield session
+            except Exception as e:
+                await session.rollback()
+                raise e
 
 sessionmanager = DatabaseSessionManager(
-    settings.SQLALCHEMY_DATABASE_URI,
-    {"echo": settings.echo_sql, "future": True},
+    settings.postgres_database_uri,
+    {"echo": settings.ECHO_SQL, "future": True},
 )
-
-async def validate_database():
-    async with sessionmanager.connect() as connection:
-        if not await connection.run_sync(database_exists, connection.url):
-            await connection.run_sync(create_database, connection.url)
-            logger.info("New database is created")
-        else:
-            logger.info("Database already exists")
-        await connection.run_sync(Base.metadata.create_all)
-
-# Import all your models here so that Base has them before calling create_all
-from app.models import *
-
 
 async def get_idb() -> AsyncIterator[AsyncSession]:
     async with sessionmanager.session() as session:
@@ -112,5 +155,3 @@ async def get_idb() -> AsyncIterator[AsyncSession]:
 
 async def get_db() -> AsyncSession:
     return await anext(get_idb())
-
-'''

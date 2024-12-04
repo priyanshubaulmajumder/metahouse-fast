@@ -3,13 +3,16 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.models.scheme import SchemeHistNavData
+from app.schemas.scheme import SchemeHistNavDataSchema
+
 from app.cache.redis_cache import get_cache_value, set_cache_value
-from app.utils.futils import get_float, xirr
-from utils.constants import NavTypeChoices, WHistoricalNAVField
+from app.utils.futils import get_float
+from pyxirr import xirr
+from app.utils.constants import NavTypeChoices, WHistoricalNAVField
 from sqlalchemy import text
 from dateutil.relativedelta import relativedelta
 from fastapi import Depends
-from app.db.session import get_db
+from app.db.base import get_db
 from app.exceptions import WealthyValidationError
 from app.utils.concurrent import execute_functions_concurrently
 import logging
@@ -40,7 +43,7 @@ class ReturnsCalculator:
             invested_value=None, current_value=None, xirr=None, xirr_percentage=None,
             absolute_returns=None, absolute_returns_percentage=None, returns_details=[]
         )
-        now = datetime.datetime.now().date()
+        now = datetime.now().date()
         params = dict(wpc=self.wpc, n_years=self.n_years, sip_day=min(now.day, 28))
         nav_data = await self.get_hist_nav_data_for_n_years_with_sip_day(db, **params)
         current_nav_details = await self.get_current_nav_details(db)
@@ -75,11 +78,62 @@ class ReturnsCalculator:
         diff = get_float(current_value - self.amount)
         returns_data['invested_value'] = self.amount
         returns_data['current_value'] = current_value
+        returns_data['xirr_percentage'] = get_float(xirr_value * 100)
         returns_data['xirr'] = xirr_value
-        returns_data['diff'] = diff
-        returns_data['nav_data'] = nav_data
+        returns_data['absolute_returns'] = get_float(diff / self.amount)
+        returns_data['absolute_returns_percentage'] = get_float((diff * 100) / self.amount)
+        returns_data['returns_details'] = nav_data
         return returns_data
-
+    
+    async def calculate_returns_for_sip(self, db: AsyncSession) -> Dict[str, Any]:
+        now = datetime.now().date()
+        returns_data = dict(
+            invested_value=None, current_value=None, xirr=None, xirr_percentage=None, 
+            absolute_returns=None, absolute_returns_percentage=None, returns_details=[]
+        )
+        params = dict(wpc=self.wpc, n_years=self.n_years, sip_day=self.sip_day)
+        nav_data = await SchemeHistNavService.get_hist_nav_data_for_n_years_with_sip_day(db, **params)
+        current_nav_details = await SchemeHistNavService.get_as_on_hist_nav_data(db, wpc=self.wpc, as_on=now)
+        current_nav = current_nav_details['adj_nav'] or 0
+        if not current_nav:
+            return returns_data
+        if not nav_data:
+            return returns_data
+        total_units, dates = 0, []
+        for i, nd in enumerate(nav_data):
+            total_units = get_float(total_units + (self.amount / nd['adj_nav']))
+            nd['units'] = total_units
+            nd['invested_value'] = self.amount * (i+1)
+            nd['current_value'] = get_float(total_units * nd['adj_nav'], decimal_places=2)
+            dates.append(nd['nav_date'])
+        current_nav_date = str(current_nav_details['nav_date'])
+        dates.append(current_nav_date)
+        current_nav = get_float(current_nav)
+        invested_dates_len = len(nav_data)
+        invested_value = nav_data[-1]['invested_value']
+        current_value = get_float(total_units * current_nav)
+        cashflows = [-self.amount] * invested_dates_len + [current_value]
+        xirr_value = get_float(xirr(dates, cashflows), decimal_places=7)
+        if nav_data[-1]['nav_date'] != current_nav_date:
+            current_nav_details['nav_date'] = current_nav_date
+            current_nav_details['nav'] = current_nav_details['nav'] or 0
+            current_nav_details['nav'] = get_float(current_nav_details['nav'])
+            current_nav_details['adj_nav'] = current_nav
+            current_nav_details['units'] = get_float(total_units)
+            current_nav_details['invested_value'] = invested_value
+            current_nav_details['current_value'] = current_value
+            nav_data.append(current_nav_details)
+        diff = get_float(current_value - invested_value)
+        absolute_returns = get_float((diff * 100) / invested_value)
+        returns_data['current_value'] = current_value
+        returns_data['xirr'] = xirr_value
+        returns_data['xirr_percentage'] = get_float(xirr_value * 100)
+        returns_data['absolute_returns'] = get_float(absolute_returns / 100)
+        returns_data['absolute_returns_percentage'] = absolute_returns
+        returns_data['invested_value'] = invested_value
+        returns_data['returns_details'] = nav_data
+        return returns_data
+    
     async def get_current_nav_details(self, db: AsyncSession) -> SchemeHistNavData:
         cache_key = f"current_nav_details_{self.wpc}"
         cached_value = await get_cache_value(cache_key)
@@ -112,24 +166,28 @@ class ReturnsCalculator:
         await set_cache_value(cache_key, [nav.__dict__ for nav in nav_data], expire=3600)
         return nav_data
     
-    
-
+async def get_hist_nav_data(db):
+    result = await db.execute(select(SchemeHistNavData).filter_by(wpc="MF00001580"))
+    return result
+    #return result
 
 class SchemeHistNavService:
     Modal = SchemeHistNavData
-
+    
     @classmethod
    # @from_cache(cache_func=CacheKeysService.scheme_hist_nav_data_cache_key, timeout=60 * 60)
-    async def get_hist_nav_data(cls, db:AsyncSession , wpc, nav_type):
-        nav_data = {}
-        if not wpc:
-            return nav_data
-        vl = ['nav_date', 'nav']
-        if nav_type == NavTypeChoices.AdjNav:
-            vl = ['nav_date', 'adj_nav']
-        result = await db.execute(select(cls.Modal).filter_by(wpc=wpc).order_by(cls.Modal.nav_date).with_only_columns(vl))
-        nav_data = {str(nd[0]): nd[1] for nd in result.all()}
-        return nav_data
+    async def get_hist_nav_data(cls, db: AsyncSession, wpc: str) -> Optional[SchemeHistNavDataSchema]:
+       # nav_date = datetime.strptime(nav_date, '%Y-%m-%d')
+
+        try:
+            result = await db.execute(
+                select(cls.Modal).filter_by(wpc=wpc)
+            )
+            scheme_hist_nav_data = result.scalar_one_or_none()    
+            return scheme_hist_nav_data
+        except SQLAlchemyError as e:
+            logger.error(f"Database query failed: {e}")
+            return None
 
     @classmethod
    # @from_cache(cache_func=CacheKeysService.scheme_hist_nav_data_for_n_years_cache_key, timeout=3 * 60 * 60)

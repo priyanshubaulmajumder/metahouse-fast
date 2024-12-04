@@ -252,11 +252,11 @@ class StockCategory(PyEnum):
     SMALL_CAP = 'S'
 
 class StockIDGenerator(Base):
-    __tablename__ = "stock_id_generator"
+    __tablename__ = "funnal_stockidgenerator"
     generated_id = Column(Integer, primary_key=True, autoincrement=True)
 
 class Stock(Base):
-    __tablename__ = "stocks"
+    __tablename__ = "funnal_stock"
 
     wstockcode = Column(String(28), primary_key=True)
     wpc = Column(WealthyProductCodeField("ST", StockIDGenerator, max_length=12), unique=True, nullable=True)
@@ -344,40 +344,40 @@ class Stock(Base):
         return f"https://broking-public.s3.ap-south-1.amazonaws.com/stocks/{self.isin}.png"
 
 class StockCachedNSEHPriceData(Base):
-    __tablename__ = "stock_cached_nse_hprice_data"
+    __tablename__ = "funnal_stockcachednsehpricedata"
 
-    wstockcode = Column(String(28), ForeignKey('stocks.wstockcode'), primary_key=True)
+    wstockcode = Column(String(28), primary_key=True)
     third_party_id = Column(String(10))
     name = Column(String(256))
     latest_price_date = Column(Date, nullable=True)
     prices = Column(JSON, nullable=True)
 
-    stock = relationship("Stock", back_populates="nse_hprice_data")
+    #stock = relationship("Stock", back_populates="nse_hprice_data")
 
     __table_args__ = (
         Index('ix_stock_nhp_thid_party_id_1', 'third_party_id'),
     )
 
 class StockCachedBSEHPriceData(Base):
-    __tablename__ = "stock_cached_bse_hprice_data"
+    __tablename__ = "funnal_stockcachedbsehpricedata"
 
-    wstockcode = Column(String(28), ForeignKey('stocks.wstockcode'), primary_key=True)
+    wstockcode = Column(String(28), primary_key=True)
     third_party_id = Column(String(10))
     name = Column(String(256))
     latest_price_date = Column(Date, nullable=True)
     prices = Column(JSON, nullable=True)
 
-    stock = relationship("Stock", back_populates="bse_hprice_data")
+    #stock = relationship("Stock", back_populates="bse_hprice_data")
 
     __table_args__ = (
         Index('ix_stock_bhp_thid_party_id_1', 'third_party_id'),
     )
 
 class StockNSEHistPriceData(Base):
-    __tablename__ = "stock_nse_hist_price_data"
-
+    __tablename__ = "funnal_stocknsehistpricedata"
+    
     id = Column(Integer, primary_key=True)
-    wstockcode = Column(String(28), ForeignKey('stocks.wstockcode'))
+    wstockcode = Column(String(28))
     price_date = Column(Date)
     open = Column(Numeric(20, 6), default=Decimal('0.000000'))
     close = Column(Numeric(20, 6), default=Decimal('0.000000'))
@@ -388,7 +388,7 @@ class StockNSEHistPriceData(Base):
     diff = Column(Numeric(20, 6), default=Decimal('0.000000'))
     percentage_change = Column(Numeric(20, 6), default=Decimal('0.000000'))
 
-    stock = relationship("Stock", back_populates="nse_hist_price_data")
+    #stock = relationship("Stock", back_populates="nse_hist_price_data")
 
     __table_args__ = (
         Index('ix_snsehp_wstockcode_1', 'wstockcode'),
@@ -396,10 +396,10 @@ class StockNSEHistPriceData(Base):
     )
 
 class StockBSEHistPriceData(Base):
-    __tablename__ = "stock_bse_hist_price_data"
+    __tablename__ = "funnal_stockbsehistpricedata"
 
     id = Column(Integer, primary_key=True)
-    wstockcode = Column(String(28), ForeignKey('stocks.wstockcode'))
+    wstockcode = Column(String(28))
     price_date = Column(Date)
     open = Column(Numeric(20, 6), default=Decimal('0.000000'))
     close = Column(Numeric(20, 6), default=Decimal('0.000000'))
@@ -410,7 +410,7 @@ class StockBSEHistPriceData(Base):
     diff = Column(Numeric(20, 6), default=Decimal('0.000000'))
     percentage_change = Column(Numeric(20, 6), default=Decimal('0.000000'))
 
-    stock = relationship("Stock", back_populates="bse_hist_price_data")
+    #stock = relationship("Stock", back_populates="bse_hist_price_data")
 
     __table_args__ = (
         Index('ix_sbsehp_wstockcode_1', 'wstockcode'),
@@ -418,9 +418,9 @@ class StockBSEHistPriceData(Base):
     )
 
 class StockManagementInfo(Base):
-    __tablename__ = "stock_management_info"
+    __tablename__ = "funnal_stockmanagementinfo"
 
-    wstockcode = Column(String(28), ForeignKey('stocks.wstockcode'), primary_key=True)
+    wstockcode = Column(String(28), primary_key=True)
     director = Column(JSON, nullable=True)
     chairman_and_managing_director = Column(String(50), nullable=True)
     address = Column(Text, nullable=True)
@@ -429,14 +429,14 @@ class StockManagementInfo(Base):
     email = Column(String(254), nullable=True)
     website = Column(String(50), nullable=True)
 
-    stock = relationship("Stock", back_populates="management_info")
+
 
     __table_args__ = (
         Index('ix_smi_wstockcode_11', 'wstockcode'),
     )
     
 class StockWCategoryMapping(Base):
-    __tablename__ = "stock_wcategory_mapping"
+    __tablename__ = "funnal_stockwcategorymapping"
 
     id = Column(Integer, primary_key=True)
     category = Column(String(10))
@@ -444,11 +444,11 @@ class StockWCategoryMapping(Base):
     token = Column(String(10))
     name = Column(String(256))
 
-Stock.management_info = relationship("StockManagementInfo", back_populates="stock", uselist=False)
-Stock.nse_hprice_data = relationship("StockCachedNSEHPriceData", back_populates="stock", uselist=False)
-Stock.bse_hprice_data = relationship("StockCachedBSEHPriceData", back_populates="stock", uselist=False)
-Stock.nse_hist_price_data = relationship("StockNSEHistPriceData", back_populates="stock")
-Stock.bse_hist_price_data = relationship("StockBSEHistPriceData", back_populates="stock")
+# Stock.management_info = relationship("StockManagementInfo", back_populates="stock", uselist=False)
+# Stock.nse_hprice_data = relationship("StockCachedNSEHPriceData", back_populates="stock", uselist=False)
+# Stock.bse_hprice_data = relationship("StockCachedBSEHPriceData", back_populates="stock", uselist=False)
+# Stock.nse_hist_price_data = relationship("StockNSEHistPriceData", back_populates="stock")
+# Stock.bse_hist_price_data = relationship("StockBSEHistPriceData", back_populates="stock")
 
 @event.listens_for(Stock, 'before_insert')
 def generate_wpc(mapper, connection, target):

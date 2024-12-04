@@ -1,4 +1,5 @@
-from pydantic import BaseModel, Field
+from pydantic_settings import BaseSettings
+from pydantic import Field
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
 from datetime import date, datetime
@@ -9,7 +10,7 @@ class StockCategory(str, Enum):
     MID_CAP = 'M'
     SMALL_CAP = 'S'
 
-class StockBase(BaseModel):
+class StockBase(BaseSettings):
     wstockcode: str = Field(..., max_length=28)
     wpc: Optional[str] = Field(None, max_length=12)
     third_party_id: str = Field(..., max_length=10)
@@ -76,14 +77,14 @@ class StockResponse(StockBase):
     class Config:
         orm_mode = True
 
-class TechnicalIndicatorsResponse(BaseModel):
+class TechnicalIndicatorsResponse(BaseSettings):
     rsi: Optional[Decimal]
     macd: Optional[Decimal]
     ema: Optional[Decimal]
     sma: Optional[Decimal]
     std: Optional[Decimal]
 
-class StockReturnsResponse(BaseModel):
+class StockReturnsResponse(BaseSettings):
     one_month: Optional[Decimal]
     three_months: Optional[Decimal]
     six_months: Optional[Decimal]
@@ -92,13 +93,13 @@ class StockReturnsResponse(BaseModel):
     three_years: Optional[Decimal]
     five_years: Optional[Decimal]
 
-class PaginatedStockResponse(BaseModel):
+class PaginatedStockResponse(BaseSettings):
     items: List[StockResponse]
     total: int
     skip: int
     limit: int
 
-class StockHistPriceData(BaseModel):
+class StockHistPriceData(BaseSettings):
     price_date: date
     open: Decimal
     close: Decimal
@@ -109,7 +110,7 @@ class StockHistPriceData(BaseModel):
     diff: Decimal
     percentage_change: Decimal
 
-class StockFundamentalsResponse(BaseModel):
+class StockFundamentalsResponse(BaseSettings):
     pe: Optional[Decimal]
     pb: Optional[Decimal]
     dividend_yield: Optional[Decimal]
@@ -124,14 +125,14 @@ class StockFundamentalsResponse(BaseModel):
     debt_to_equity: Optional[Decimal]
     industry_pe_ratio: Optional[Decimal]
 
-class ShareHoldingPatternResponse(BaseModel):
+class ShareHoldingPatternResponse(BaseSettings):
     promoters: Optional[Decimal]
     fii: Optional[Decimal]
     dii: Optional[Decimal]
     public: Optional[Decimal]
     others: Optional[Decimal]
 
-class FinancialsOverviewResponse(BaseModel):
+class FinancialsOverviewResponse(BaseSettings):
     revenue: Optional[Decimal]
     expenses: Optional[Decimal]
     profit_loss: Optional[Decimal]
@@ -139,12 +140,12 @@ class FinancialsOverviewResponse(BaseModel):
     liabilities: Optional[Decimal]
     equity: Optional[Decimal]
 
-class DetailedFinancialsResponse(BaseModel):
+class DetailedFinancialsResponse(BaseSettings):
     balance_sheet: Dict[str, Decimal]
     profit_loss: Dict[str, Decimal]
     cash_flow: Dict[str, Decimal]
 
-class StockManagementInfoResponse(BaseModel):
+class StockManagementInfoResponse(BaseSettings):
     director: Optional[dict]
     chairman_and_managing_director: Optional[str]
     address: Optional[str]
@@ -153,7 +154,7 @@ class StockManagementInfoResponse(BaseModel):
     email: Optional[str]
     website: Optional[str]
 
-class StockWCategoryMappingResponse(BaseModel):
+class StockWCategoryMappingResponse(BaseSettings):
     category: str
     exchange: str
     token: str
@@ -162,7 +163,7 @@ class StockWCategoryMappingResponse(BaseModel):
     class Config:
         orm_mode = True
 
-class StockCachedHPriceDataResponse(BaseModel):
+class StockCachedHPriceDataResponse(BaseSettings):
     wstockcode: str
     third_party_id: str
     name: str
@@ -172,7 +173,7 @@ class StockCachedHPriceDataResponse(BaseModel):
     class Config:
         orm_mode = True
 
-class StockExchangeHistPriceDataResponse(BaseModel):
+class StockExchangeHistPriceDataResponse(BaseSettings):
     id: int
     wstockcode: str
     price_date: date
@@ -188,7 +189,7 @@ class StockExchangeHistPriceDataResponse(BaseModel):
     class Config:
         orm_mode = True
 
-class StockIDWPCMappingResponse(BaseModel):
+class StockIDWPCMappingResponse(BaseSettings):
     id: str
     identifier: str
     wpc: str
@@ -198,7 +199,7 @@ class StockIDWPCMappingResponse(BaseModel):
     class Config:
         orm_mode = True
 
-class StockHistPriceDataResponse(BaseModel):
+class StockHistPriceDataResponse(BaseSettings):
     id: int
     wstockcode: str
     date: date
@@ -212,14 +213,14 @@ class StockHistPriceDataResponse(BaseModel):
     class Config:
         orm_mode = True
 
-class TechnicalIndicatorsResponse(BaseModel):
+class TechnicalIndicatorsResponse(BaseSettings):
     rsi: Optional[Decimal]
     macd: Optional[Decimal]
     ema: Optional[Decimal]
     sma: Optional[Decimal]
     std: Optional[Decimal]
 
-class StockReturnsResponse(BaseModel):
+class StockReturnsResponse(BaseSettings):
     one_month: Optional[Decimal]
     three_months: Optional[Decimal]
     six_months: Optional[Decimal]
@@ -228,7 +229,7 @@ class StockReturnsResponse(BaseModel):
     three_years: Optional[Decimal]
     five_years: Optional[Decimal]
 
-class StockHistPriceDataBase(BaseModel):
+class StockHistPriceDataBase(BaseSettings):
     wstockcode: str
     price_date: date
     open: Decimal

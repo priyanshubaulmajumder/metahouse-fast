@@ -8,6 +8,9 @@ from app.schemas.stock import StockResponse
 from app.schemas.scheme import SchemeSerializer as SchemeResponse
 from typing import List, Optional
 from app.core.config import settings
+from fastapi import HTTPException
+import logging
+logger = logging.getLogger(__name__)
 #from app.utils.cache import cache
 
 class ScreenerService:
@@ -28,57 +31,21 @@ class ScreenerService:
         return []
 
     @staticmethod
-    async def get_screener(db: AsyncSession):
-        # Implement your screener logic here
-        return {"message": "Screener service"}
-    """
-    @staticmethod
-    async def get_screeners(db: AsyncSession, category: Optional[str] = None):
-        categories = settings.DEFAULT_STOCK_SCREENERS
-        instrument_type_cache_key = f"screeners:stocks"
-        
-        if category:
-            categories = [cat.strip() for cat in category.split(',')]
-            instrument_type_cache_key = None
-
-        if instrument_type_cache_key:
-            cached_screeners = await cache.get(instrument_type_cache_key)
-            if cached_screeners:
-                return cached_screeners
-
-        query = select(Screener).filter(Screener.category.in_(categories), Screener.is_active == True)
-        result = await db.execute(query)
-        objs = result.scalars().all()
-
-        categories_query = select(Screener.category, Screener.category_display_name) \
-            .filter(Screener.category.in_(categories), Screener.is_active == True) \
-            .order_by(Screener.category_order) \
-            .distinct()
-        categories_result = await db.execute(categories_query)
-        categories = categories_result.all()
-
-        screeners = []
-        for cat, cat_dn in categories:
-            cache_key = f"screeners:{cat}"
-            cached_screener = await cache.get(cache_key)
-            if cached_screener:
-                screeners.append(cached_screener)
-                continue
-
-            f_objs = [obj for obj in objs if obj.category.lower() == cat.lower()]
-            if not f_objs:
-                continue
-
-            cat_screeners = [ScreenerResponse.from_orm(obj).dict() for obj in f_objs]
-            screener_details = {"id": cat, "name": cat_dn, "screeners": cat_screeners}
-            await cache.set(cache_key, screener_details, timeout=24 * 60 * 60)
-            screeners.append(screener_details)
-
-        if instrument_type_cache_key:
-            await cache.set(instrument_type_cache_key, screeners, timeout=24 * 60 * 60)
-
-        return screeners
-    """
+    async def get_screener(db: AsyncSession, screener_id: str):
+        """
+        Retrieve a screener by its ID.
+        """
+        try:
+            result = await db.execute(
+                select(Screener).filter_by(id=screener_id)
+            )
+            screener = result.scalar_one_or_none()
+            if screener is None:
+                raise HTTPException(status_code=404, detail="Screener not found")
+            return screener
+        except Exception as e:
+            logger.error(f"Error retrieving Screener for ID: {screener_id} - {e}")
+            raise
         
         
     

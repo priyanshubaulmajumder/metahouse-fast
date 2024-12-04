@@ -1,0 +1,10 @@
+# Ignore specific files
+db.py
+main.py
+alteringcsv.py
+.env
+.env.test
+
+# Include all other files
+*
+!*/

@@ -4,7 +4,7 @@ from app.models.scheme import (
     SchemeIDGenerator,
     SchemeHistNavData,
     SectorToWSectorMapping,
-    SchemeHolding,
+    #SchemeHolding,
     WSchemeCodeWPCMapping,
     SchemeCodeWPCMapping,
     WPCToTWPCMapping,

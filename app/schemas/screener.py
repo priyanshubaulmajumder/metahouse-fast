@@ -1,4 +1,5 @@
-from pydantic import BaseModel, Field
+from pydantic_settings import BaseSettings
+from pydantic import Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -8,7 +9,7 @@ class ScreenerSource(str, Enum):
     CMOTS = 'cmots'
     MorningStar = 'morning_star'
 
-class ScreenerBase(BaseModel):
+class ScreenerBase(BaseSettings):
     name: str = Field(..., max_length=254)
     source: ScreenerSource = Field(default=ScreenerSource.Wealthy)
     category: str = Field(..., max_length=254)
@@ -40,7 +41,7 @@ class ScreenerInDB(ScreenerBase):
 class ScreenerResponse(ScreenerInDB):
     pass
 
-class ScreenerInstrumentBase(BaseModel):
+class ScreenerInstrumentBase(BaseSettings):
     instruments: List[str] = Field(...)
     cols: List[str] = Field(default_factory=list)
 
@@ -62,7 +63,7 @@ class ScreenerInstrumentInDB(ScreenerInstrumentBase):
 class ScreenerInstrumentResponse(ScreenerInstrumentInDB):
     pass
 
-class WSchemeCodeWPCMappingBase(BaseModel):
+class WSchemeCodeWPCMappingBase(BaseSettings):
     wschemecode: str = Field(..., max_length=28)
     wpc: str = Field(..., max_length=12)
     hidden: bool = Field(default=False)
@@ -82,7 +83,7 @@ class WSchemeCodeWPCMappingInDB(WSchemeCodeWPCMappingBase):
 class WSchemeCodeWPCMappingResponse(WSchemeCodeWPCMappingInDB):
     pass
 
-class ISINWPCMappingBase(BaseModel):
+class ISINWPCMappingBase(BaseSettings):
     isin: str = Field(..., max_length=20)
     wpc: str = Field(..., max_length=12)
     hidden: bool = Field(default=False)
@@ -102,7 +103,7 @@ class ISINWPCMappingInDB(ISINWPCMappingBase):
 class ISINWPCMappingResponse(ISINWPCMappingInDB):
     pass
 
-class SchemeCodeWPCMappingBase(BaseModel):
+class SchemeCodeWPCMappingBase(BaseSettings):
     scheme_code: str = Field(..., max_length=20)
     wpc: str = Field(..., max_length=12)
     hidden: bool = Field(default=False)
@@ -122,7 +123,7 @@ class SchemeCodeWPCMappingInDB(SchemeCodeWPCMappingBase):
 class SchemeCodeWPCMappingResponse(SchemeCodeWPCMappingInDB):
     pass
 
-class ScreenerListResponse(BaseModel):
+class ScreenerListResponse(BaseSettings):
     id: str
     name: str
     screeners: List[ScreenerResponse]

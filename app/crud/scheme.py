@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic_settings import BaseSettings, Field, field_validator
 from typing import Optional, Dict
 from decimal import Decimal
 from datetime import date
@@ -7,7 +7,7 @@ from enum import Enum
 # Import the necessary enums from your original schema file
 from app.schemas.scheme import SchemeType, LockInUnitType, SchemeNature, MainCategory, ExitLoadUnitType, TaxationType
 
-class SchemeCreate(BaseModel):
+class SchemeCreate(BaseSettings):
     wschemecode: str
     wpc: str
     third_party_id: Optional[str] = None
@@ -81,7 +81,7 @@ class SchemeCreate(BaseModel):
             raise ValueError('wpc must start with MF')
         return v
 
-class SchemeUpdate(BaseModel):
+class SchemeUpdate(BaseSettings):
     third_party_id: Optional[str] = None
     isin: Optional[str] = None
     isin_reinvestment: Optional[str] = None
@@ -137,7 +137,7 @@ class SchemeUpdate(BaseModel):
     ratings_as_on: Optional[date] = None
     wealthy_select: Optional[bool] = None
 
-class SchemeHoldingCreate(BaseModel):
+class SchemeHoldingCreate(BaseSettings):
     wpc: str
     portfolio_date: Optional[date] = None
     holding_third_party_id: str

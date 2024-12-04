@@ -1,4 +1,5 @@
-from pydantic import BaseModel, Field, field_validator, validator
+from pydantic_settings import BaseSettings
+from pydantic import Field, field_validator, validator, BaseModel
 from typing import Optional, List, Dict
 from datetime import date, datetime
 from decimal import Decimal
@@ -34,14 +35,15 @@ class TaxationType(str, Enum):
     Equity = 'E'
     Debt = 'D'
 
-class SchemeIDGenerator(BaseModel):
+class SchemeIDGenerator(BaseSettings):
     generated_id: int
     class Config:
         from_attributes = True
         
-class SchemeHistNavData(BaseModel):
+class SchemeHistNavDataSchema(BaseModel):
+    
     wpc: str
-    nav_date: datetime
+    nav_date: date  
     nav: float
     adj_nav: float
     diff: float
@@ -49,7 +51,7 @@ class SchemeHistNavData(BaseModel):
     class Config:
         from_attributes = True
 
-class WPCToTWPCMapping(BaseModel):
+class WPCToTWPCMapping(BaseSettings):
     external_id: str
     wpc: str
     target_wpc: str
@@ -58,7 +60,7 @@ class WPCToTWPCMapping(BaseModel):
         from_attributes = True
 
 
-class SectorToWSectorMapping(BaseModel):
+class SectorToWSectorMapping(BaseSettings):
     external_id: str
     sector: str
     wsector: str
@@ -66,7 +68,7 @@ class SectorToWSectorMapping(BaseModel):
         from_attributes = True
 
 
-class SchemeHolding(BaseModel):
+class SchemeHolding(BaseSettings):
     scheme_id: int
     holding_id: int
     holding_percentage: float
@@ -74,35 +76,35 @@ class SchemeHolding(BaseModel):
         from_attributes = True
 
 
-class WSchemeCodeWPCMapping(BaseModel):
+class WSchemeCodeWPCMapping(BaseSettings):
     wscheme_code: str
     wpc: str
     class Config:
         from_attributes = True
 
 
-class SchemeCodeWPCMapping(BaseModel):
+class SchemeCodeWPCMapping(BaseSettings):
     scheme_code: str
     wpc: str
     class Config:
         from_attributes = True
 
 
-class WPCWPCMapping(BaseModel):
+class WPCWPCMapping(BaseSettings):
     wpc: str
     target_wpc: str
     class Config:
         from_attributes = True
 
 
-class ParentChildSchemeMapping(BaseModel):
+class ParentChildSchemeMapping(BaseSettings):
     parent_scheme_id: int
     child_scheme_id: int
     class Config:
         from_attributes = True
 
 
-class SchemeAudit(BaseModel):
+class SchemeAudit(BaseSettings):
     scheme_id: int
     audit_date: datetime
     audit_result: str
@@ -110,13 +112,13 @@ class SchemeAudit(BaseModel):
         from_attributes = True
 
 
-class SchemeNature(BaseModel):
+class SchemeNature(BaseSettings):
     nature: SchemeNatureEnum
     class Config:
         from_attributes = True
 
 
-class Scheme(BaseModel):
+class Scheme(BaseSettings):
     id: int
     name: str
     third_party_id: str
@@ -143,7 +145,7 @@ class Scheme(BaseModel):
         from_attributes = True
 
 
-class SchemeUniqueIDsCacheService(BaseModel):
+class SchemeUniqueIDsCacheService(BaseSettings):
     cache_key: str
     cache_value: str
     class Config:
@@ -153,7 +155,7 @@ class SchemeUniqueIDsCacheService(BaseModel):
 class SchemeResponse(Scheme):
     pass
 
-class SchemeSerializer(BaseModel):
+class SchemeSerializer(BaseSettings):
     wschemecode: str
     wpc: str
     third_party_id: Optional[str]
@@ -254,7 +256,7 @@ class SchemeSerializer(BaseModel):
                 return 'Investment is currently not allowed in this NFO'
         return None
 
-class SchemeHoldingSerializer(BaseModel):
+class SchemeHoldingSerializer(BaseSettings):
     external_id: str
     wpc: str
     portfolio_date: Optional[date]

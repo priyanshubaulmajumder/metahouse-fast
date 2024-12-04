@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
-from app.models.scheme import Scheme, SchemeHolding
+from app.models.scheme import Scheme #SchemeHolding
 from app.crud.scheme import SchemeCreate, SchemeUpdate, SchemeHoldingCreate
 from typing import List, Optional
 from datetime import date, datetime
@@ -50,18 +50,18 @@ class SchemeService:
             db.commit()
             return True
         return False
+#metahouse e nei eta
+    # @staticmethod
+    # def get_scheme_holdings(db: Session, wpc: str) -> List[SchemeHolding]:
+    #     return db.query(SchemeHolding).filter(SchemeHolding.wpc == wpc).all()
 
-    @staticmethod
-    def get_scheme_holdings(db: Session, wpc: str) -> List[SchemeHolding]:
-        return db.query(SchemeHolding).filter(SchemeHolding.wpc == wpc).all()
-
-    @staticmethod
-    def create_scheme_holding(db: Session, holding: SchemeHoldingCreate) -> SchemeHolding:
-        db_holding = SchemeHolding(**holding.dict())
-        db.add(db_holding)
-        db.commit()
-        db.refresh(db_holding)
-        return db_holding
+    # @staticmethod
+    # def create_scheme_holding(db: Session, holding: SchemeHoldingCreate) -> SchemeHolding:
+    #     db_holding = SchemeHolding(**holding.dict())
+    #     db.add(db_holding)
+    #     db.commit()
+    #     db.refresh(db_holding)
+    #     return db_holding
 
     @staticmethod
     def get_schemes_by_category(db: Session, category: str) -> List[Scheme]:
