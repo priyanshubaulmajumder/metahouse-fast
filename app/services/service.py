@@ -2,9 +2,9 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from app.models.scheme import SchemeHistNavData
-from app.schemas.scheme import SchemeHistNavDataSchema
-
+from app.models.scheme import SchemeHistNavData, ISINWPCMapping, SchemeCodeWPCMapping,Scheme,WSchemeCodeWPCMapping
+from app.schemas.scheme import SchemeHistNavDataSchema, ResolveResultSchema
+from sqlalchemy import and_
 from app.cache.redis_cache import get_cache_value, set_cache_value
 from app.utils.futils import get_float
 from pyxirr import xirr
@@ -22,11 +22,13 @@ logger = logging.getLogger("app")
 
 class ReturnsCalculator:
     def __init__(self, data: Dict[str, Any]):
-        self.wpc = data['wpc']
-        self.amount = data['amount']
-        self.n_years = data['n_years']
-        self.investment_type = data['investment_type']
-        self.sip_day = data['sip_day']  
+        from app.validator import RequestValidator
+        validated_data = RequestValidator.returns_calculator(data=data)
+        self.wpc = validated_data['wpc']
+        self.amount = validated_data['amount']
+        self.n_years = validated_data['n_years']
+        self.investment_type = validated_data['investment_type']
+        self.sip_day = validated_data['sip_day']  
 
     async def calculate_returns(self, db: AsyncSession) -> Dict[str, Any]:
         if self.investment_type == "Onetime":
@@ -39,110 +41,119 @@ class ReturnsCalculator:
         )
 
     async def calculate_returns_for_onetime(self, db: AsyncSession) -> Dict[str, Any]:
-        returns_data = dict(
-            invested_value=None, current_value=None, xirr=None, xirr_percentage=None,
-            absolute_returns=None, absolute_returns_percentage=None, returns_details=[]
-        )
+        returns_data = {
+            'invested_value': None,
+            'current_value': None,
+            'xirr': None,
+            'xirr_percentage': None,
+            'absolute_returns': None,
+            'absolute_returns_percentage': None,
+            'returns_details': []
+        }
         now = datetime.now().date()
-        params = dict(wpc=self.wpc, n_years=self.n_years, sip_day=min(now.day, 28))
-        nav_data = await self.get_hist_nav_data_for_n_years_with_sip_day(db, **params)
-        current_nav_details = await self.get_current_nav_details(db)
+        params = {'wpc': self.wpc, 'n_years': self.n_years, 'sip_day': min(now.day, 28)}
+        nav_data = await SchemeHistNavService.get_hist_nav_data_for_n_years_with_sip_day(db, **params)
+        if not nav_data:
+            return returns_data
+        current_nav_details = await SchemeHistNavService.get_as_on_hist_nav_data(db, wpc=self.wpc, as_on=now)
         n_years_back_nav_details = await self.get_n_years_back_nav_details(db)
-        
-        current_nav = current_nav_details.adj_nav or 0
+        if not current_nav_details or not n_years_back_nav_details:
+            return returns_data
+        current_nav = current_nav_details.get('adj_nav') or 0
         if not current_nav:
             return returns_data
-        n_years_back_nav = n_years_back_nav_details.adj_nav or 0
+        n_years_back_nav = n_years_back_nav_details.get('adj_nav') or 0
         if not n_years_back_nav:
             return returns_data
         units = get_float(self.amount / n_years_back_nav)
         for nd in nav_data:
-            nd.units = units
-            nd.invested_value = self.amount
-            nd.current_value = get_float(units * nd.adj_nav, decimal_places=2)
-        current_nav_date = str(current_nav_details.nav_date)
-        dates = [n_years_back_nav_details.nav_date, current_nav_date]
+            nd['units'] = units
+            nd['invested_value'] = self.amount
+            nd['current_value'] = get_float(units * nd['adj_nav'], decimal_places=2)
+        current_nav_date = str(current_nav_details['nav_date'])
+        dates = [n_years_back_nav_details['nav_date'], current_nav_date]
         current_nav = get_float(current_nav)
-        if nav_data[-1].nav_date != current_nav_date:
-            current_nav_details.nav_date = current_nav_date
-            current_nav_details.nav = current_nav_details.nav or 0
-            current_nav_details.nav = get_float(current_nav_details.nav)
-            current_nav_details.adj_nav = current_nav
-            current_nav_details.units = units
-            current_nav_details.invested_value = self.amount
-            current_nav_details.current_value = get_float(units * current_nav, decimal_places=2)
+        if nav_data[-1]['nav_date'] != current_nav_date:
+            current_nav_details['nav_date'] = current_nav_date
+            current_nav_details['nav'] = current_nav_details.get('nav') or 0
+            current_nav_details['nav'] = get_float(current_nav_details['nav'])
+            current_nav_details['adj_nav'] = current_nav
+            current_nav_details['units'] = units
+            current_nav_details['invested_value'] = self.amount
+            current_nav_details['current_value'] = get_float(units * current_nav, decimal_places=2)
             nav_data.append(current_nav_details)
-        current_value = nav_data[-1].current_value
+        current_value = nav_data[-1]['current_value']
         cashflows = [-self.amount, current_value]
         xirr_value = get_float(xirr(dates, cashflows), decimal_places=7)
         diff = get_float(current_value - self.amount)
         returns_data['invested_value'] = self.amount
         returns_data['current_value'] = current_value
-        returns_data['xirr_percentage'] = get_float(xirr_value * 100)
         returns_data['xirr'] = xirr_value
+        returns_data['xirr_percentage'] = get_float(xirr_value * 100)
         returns_data['absolute_returns'] = get_float(diff / self.amount)
         returns_data['absolute_returns_percentage'] = get_float((diff * 100) / self.amount)
         returns_data['returns_details'] = nav_data
         return returns_data
-    
+
     async def calculate_returns_for_sip(self, db: AsyncSession) -> Dict[str, Any]:
         now = datetime.now().date()
-        returns_data = dict(
-            invested_value=None, current_value=None, xirr=None, xirr_percentage=None, 
-            absolute_returns=None, absolute_returns_percentage=None, returns_details=[]
-        )
-        params = dict(wpc=self.wpc, n_years=self.n_years, sip_day=self.sip_day)
+        returns_data = {
+            'invested_value': None,
+            'current_value': None,
+            'xirr': None,
+            'xirr_percentage': None,
+            'absolute_returns': None,
+            'absolute_returns_percentage': None,
+            'returns_details': []
+        }
+        params = {'wpc': self.wpc, 'n_years': self.n_years, 'sip_day': self.sip_day}
         nav_data = await SchemeHistNavService.get_hist_nav_data_for_n_years_with_sip_day(db, **params)
-        current_nav_details = await SchemeHistNavService.get_as_on_hist_nav_data(db, wpc=self.wpc, as_on=now)
-        current_nav = current_nav_details['adj_nav'] or 0
-        if not current_nav:
-            return returns_data
         if not nav_data:
             return returns_data
-        total_units, dates = 0, []
+        current_nav_details = await SchemeHistNavService.get_as_on_hist_nav_data(db, wpc=self.wpc, as_on=now)
+        if not current_nav_details:
+            return returns_data
+        current_nav = current_nav_details.get('adj_nav') or 0
+        if not current_nav:
+            return returns_data
+        total_units = 0
+        dates = []
         for i, nd in enumerate(nav_data):
-            total_units = get_float(total_units + (self.amount / nd['adj_nav']))
-            nd['units'] = total_units
-            nd['invested_value'] = self.amount * (i+1)
+            units_purchased = self.amount / nd['adj_nav']
+            total_units = get_float(total_units + units_purchased)
+            nd['units'] = units_purchased
+            nd['cumulative_units'] = total_units
+            nd['invested_value'] = self.amount * (i + 1)
             nd['current_value'] = get_float(total_units * nd['adj_nav'], decimal_places=2)
             dates.append(nd['nav_date'])
         current_nav_date = str(current_nav_details['nav_date'])
         dates.append(current_nav_date)
         current_nav = get_float(current_nav)
-        invested_dates_len = len(nav_data)
         invested_value = nav_data[-1]['invested_value']
         current_value = get_float(total_units * current_nav)
-        cashflows = [-self.amount] * invested_dates_len + [current_value]
+        cashflows = [-self.amount] * len(nav_data) + [current_value]
         xirr_value = get_float(xirr(dates, cashflows), decimal_places=7)
         if nav_data[-1]['nav_date'] != current_nav_date:
             current_nav_details['nav_date'] = current_nav_date
-            current_nav_details['nav'] = current_nav_details['nav'] or 0
+            current_nav_details['nav'] = current_nav_details.get('nav') or 0
             current_nav_details['nav'] = get_float(current_nav_details['nav'])
             current_nav_details['adj_nav'] = current_nav
-            current_nav_details['units'] = get_float(total_units)
+            current_nav_details['units'] = 0  # No new units purchased on the current date
+            current_nav_details['cumulative_units'] = total_units
             current_nav_details['invested_value'] = invested_value
             current_nav_details['current_value'] = current_value
             nav_data.append(current_nav_details)
         diff = get_float(current_value - invested_value)
-        absolute_returns = get_float((diff * 100) / invested_value)
+        absolute_returns_percentage = get_float((diff * 100) / invested_value)
+        returns_data['invested_value'] = invested_value
         returns_data['current_value'] = current_value
         returns_data['xirr'] = xirr_value
         returns_data['xirr_percentage'] = get_float(xirr_value * 100)
-        returns_data['absolute_returns'] = get_float(absolute_returns / 100)
-        returns_data['absolute_returns_percentage'] = absolute_returns
-        returns_data['invested_value'] = invested_value
+        returns_data['absolute_returns'] = get_float(diff / invested_value)
+        returns_data['absolute_returns_percentage'] = absolute_returns_percentage
         returns_data['returns_details'] = nav_data
         return returns_data
-    
-    async def get_current_nav_details(self, db: AsyncSession) -> SchemeHistNavData:
-        cache_key = f"current_nav_details_{self.wpc}"
-        cached_value = await get_cache_value(cache_key)
-        if cached_value:
-            return SchemeHistNavData(**cached_value)
-        result = await db.execute(select(SchemeHistNavData).filter(SchemeHistNavData.wpc == self.wpc).order_by(SchemeHistNavData.nav_date.desc()).limit(1))
-        current_nav_details = result.scalars().first()
-        await set_cache_value(cache_key, current_nav_details, expire=3600)
-        return current_nav_details
+
 
     async def get_n_years_back_nav_details(self, db: AsyncSession) -> SchemeHistNavData:
         cache_key = f"n_years_back_nav_details_{self.wpc}_{self.n_years}"
@@ -155,16 +166,7 @@ class ReturnsCalculator:
         await set_cache_value(cache_key, n_years_back_nav_details, expire=3600)
         return n_years_back_nav_details
 
-    async def get_hist_nav_data_for_n_years_with_sip_day(self, db: AsyncSession, wpc: str, n_years: int, sip_day: int) -> List[SchemeHistNavData]:
-        cache_key = f"nav_data_{wpc}_{n_years}_{sip_day}"
-        cached_value = await get_cache_value(cache_key)
-        if cached_value:
-            return [SchemeHistNavData(**nav) for nav in cached_value]
-        n_years_back_date = datetime.date.today() - datetime.timedelta(days=n_years * 365)
-        result = await db.execute(select(SchemeHistNavData).filter(SchemeHistNavData.wpc == wpc, SchemeHistNavData.nav_date >= n_years_back_date).order_by(SchemeHistNavData.nav_date))
-        nav_data = result.scalars().all()
-        await set_cache_value(cache_key, [nav.__dict__ for nav in nav_data], expire=3600)
-        return nav_data
+
     
 async def get_hist_nav_data(db):
     result = await db.execute(select(SchemeHistNavData).filter_by(wpc="MF00001580"))
@@ -206,22 +208,25 @@ class SchemeHistNavService:
             nav_data = {str(nd[0]): get_float(nd[1]) for nd in result.all()[::step]}
         return nav_data
 
+
     @classmethod
     async def get_as_on_hist_nav_data(cls, db: AsyncSession, wpc: str, as_on: datetime, approx: bool = True) -> Dict[str, Any]:
         nav_data = dict(nav_date=None, nav=None, adj_nav=None)
         if not (wpc and as_on):
             return nav_data
         if not approx:
-            q = cls.Modal.wpc == wpc, cls.Modal.nav_date == as_on
+            query = select(cls.Modal).filter(cls.Modal.wpc == wpc, cls.Modal.nav_date == as_on).order_by(cls.Modal.nav_date.desc()).limit(1)
         else:
-            q = cls.Modal.wpc == wpc, cls.Modal.nav_date <= as_on
-        result = await db.execute(select(cls.Modal).filter(*q).order_by(cls.Modal.nav_date.desc()).limit(1))
-        hist_nav_obj = result.scalar_one_or_none()
+            query = select(cls.Modal).filter(cls.Modal.wpc == wpc, cls.Modal.nav_date <= as_on).order_by(cls.Modal.nav_date.desc()).limit(1)
+        result = await db.execute(query)
+        hist_nav_obj = result.scalars().first()
         if not hist_nav_obj:
             return nav_data
         if hist_nav_obj.nav_date == as_on or approx:
-            return dict(
-                nav_date=hist_nav_obj.nav_date, nav=hist_nav_obj.nav, adj_nav=hist_nav_obj.adj_nav
+            nav_data = dict(
+                nav_date=hist_nav_obj.nav_date,
+                nav=hist_nav_obj.nav,
+                adj_nav=hist_nav_obj.adj_nav
             )
         return nav_data
 
@@ -230,9 +235,9 @@ class SchemeHistNavService:
     async def get_hist_nav_data_for_n_years_with_sip_day(
             cls, db: AsyncSession, wpc: str, n_years: int, sip_day: int, include_left_end_edge_case: bool = True, include_right_end_edge_case: bool = True,
             nav_date_gte: Optional[datetime] = None, show_percentage_change: bool = False
-    ) -> List[Dict[str, Any]]:
+    ) -> Optional[List[Dict[str, Any]]]:
         if not (wpc and n_years and sip_day):
-            return []
+            return 
         raw_query = cls.get_raw_query_for_n_years_with_sip_day_hist_nav_data(
             wpc=wpc, n_years=n_years, sip_day=sip_day,
             include_left_end_edge_case=include_left_end_edge_case,
@@ -486,3 +491,279 @@ class ModalGenericService:
                 except SQLAlchemyError as e:
                     logger.error(f"Failed to save object {obj}. {e}")
                     await db.rollback()
+                    
+
+
+
+class SchemeUniqueIDsCacheService:
+    
+    
+    async def get_scheme_code_combinations(scheme_code: str) -> List[str]:
+        if not scheme_code:
+            return []
+        scheme_codes = [scheme_code[:-1]]  
+        append_letters = ['G', 'R', 'D']
+        for append_letter in append_letters:
+            scheme_codes.append(f"{scheme_code}{append_letter}")
+        return await scheme_codes
+
+    @classmethod
+    async def resolve_wpcs_from_scheme_codes(
+        cls, 
+        scheme_codes: List[str], 
+        db: AsyncSession
+    ) -> ResolveResultSchema:
+        resolved: Dict[str, str] = {}
+        resolved_new_wpcs: Dict[str, str] = {}
+        unresolved: List[str] = []
+
+        if not scheme_codes:
+            return ResolveResultSchema(
+                resolved=resolved, 
+                resolved_new_wpcs=resolved_new_wpcs, 
+                unresolved=unresolved
+            )
+
+        mapping = await cls.get_scheme_code_wpc_mapping_from_db(scheme_codes, db)
+
+        for scheme_code in scheme_codes:
+            if scheme_code in mapping:
+                wpc_list = mapping[scheme_code]
+                resolved[scheme_code] = wpc_list[0]  # Oldest WPC
+                if len(wpc_list) > 1:
+                    resolved_new_wpcs[scheme_code] = wpc_list[-1]  # Newest WPC
+            else:
+                unresolved.append(scheme_code)
+
+        return ResolveResultSchema(
+            resolved=resolved, 
+            resolved_new_wpcs=resolved_new_wpcs, 
+            unresolved=unresolved
+        )
+
+    @classmethod
+    async def resolve_wpcs_from_isins(
+        cls, 
+        isins: List[str], 
+        db: AsyncSession
+    ) -> ResolveResultSchema:
+        resolved: Dict[str, str] = {}
+        resolved_new_wpcs: Dict[str, str] = {}
+        unresolved: List[str] = []
+
+        if not isins:
+            return ResolveResultSchema(
+                resolved=resolved, 
+                resolved_new_wpcs=resolved_new_wpcs, 
+                unresolved=unresolved
+            )
+
+        mapping = await cls.get_isin_wpc_mapping_from_db(isins, db)
+
+        for isin in isins:
+            if isin in mapping:
+                wpc_list = mapping[isin]
+                resolved[isin] = wpc_list[0]  # Oldest WPC
+                if len(wpc_list) > 1:
+                    resolved_new_wpcs[isin] = wpc_list[-1]  # Newest WPC
+            else:
+                unresolved.append(isin)
+
+        return ResolveResultSchema(
+            resolved=resolved, 
+            resolved_new_wpcs=resolved_new_wpcs, 
+            unresolved=unresolved
+        )
+        
+    @classmethod
+    async def resolve_wpcs_from_wschemecodes(
+        cls,
+        wschemecodes: List[str],
+        db: AsyncSession
+    ) -> ResolveResultSchema:
+        resolved: Dict[str, str] = {}
+        resolved_new_wpcs: Dict[str, str] = {}
+        unresolved: List[str] = []
+
+        if not wschemecodes:
+            return ResolveResultSchema(
+                resolved=resolved,
+                resolved_new_wpcs=resolved_new_wpcs,
+                unresolved=unresolved
+            )
+
+        mapping = await cls.get_wschemecode_wpc_mapping_from_db(wschemecodes, db)
+
+        for wsc in wschemecodes:
+            if wsc in mapping:
+                wpc_list = mapping[wsc]
+                resolved[wsc] = wpc_list[0]  # Oldest WPC
+                if len(wpc_list) > 1:
+                    resolved_new_wpcs[wsc] = wpc_list[-1]  # Newest WPC
+            else:
+                unresolved.append(wsc)
+
+        return ResolveResultSchema(
+            resolved=resolved,
+            resolved_new_wpcs=resolved_new_wpcs,
+            unresolved=unresolved
+        )
+
+    @classmethod
+    async def get_wschemecode_wpc_mapping_from_db(
+        cls,
+        wschemecodes: List[str],
+        db: AsyncSession
+    ) -> Dict[str, List[str]]:
+        if not wschemecodes:
+            return {}
+
+        query = select(
+            WSchemeCodeWPCMapping.wschemecode,
+            WSchemeCodeWPCMapping.wpc
+        ).where(
+            WSchemeCodeWPCMapping.wschemecode.in_(wschemecodes),
+            WSchemeCodeWPCMapping.hidden.is_(False)
+        ).order_by(
+            WSchemeCodeWPCMapping.created_at
+        )
+
+        result = await db.execute(query)
+        mappings = result.scalars().all()
+
+        mapping_dict : Dict[str, List[str]] = {}
+        for wschemecode, wpc in mappings:
+            mapping_dict.setdefault(wschemecode, []).append(wpc)
+
+        return mapping_dict
+    
+    @classmethod
+    async def get_scheme_code_wpc_mapping_from_db(
+        cls, 
+        scheme_codes: List[str], 
+        db: AsyncSession
+    ) -> Dict[str, List[str]]:
+
+        query = select(SchemeCodeWPCMapping.scheme_code, SchemeCodeWPCMapping.wpc).where(SchemeCodeWPCMapping.scheme_code.in_(scheme_codes)).order_by(SchemeCodeWPCMapping.created_at)
+        result = await db.execute(query)
+        mappings = result.scalars().all()
+        
+        mapping_dict: Dict[str, List[str]] = {}
+        for scheme_codes, wpc in mappings:
+            mapping_dict.setdefault(scheme_codes, []).append(wpc)
+        
+        return mapping_dict
+
+    @classmethod
+    async def get_isin_wpc_mapping_from_db(
+        cls, 
+        isins: List[str], 
+        db: AsyncSession
+    ) -> Dict[str, List[str]]:
+        query = select(ISINWPCMapping.isin, ISINWPCMapping.wpc).where(
+                        ISINWPCMapping.isin.in_(isins),
+                        ISINWPCMapping.hidden == False
+                        ).order_by(ISINWPCMapping.created_at)
+        result = await db.execute(query)
+        mappings = result.scalars().all()
+        
+        mapping_dict: Dict[str, List[str]] = {}
+        for isin, wpc in mappings:
+            mapping_dict.setdefault(isin, []).append(wpc)
+        
+        return mapping_dict
+
+
+class SchemeService:
+    @staticmethod
+    async def get_schemes_data(
+        db: AsyncSession,
+        cols: Optional[List[str]] = None,
+        order_by: str = '-created_at',
+        allow_deprecated: bool = False,
+        allow_null_tpids: bool = False,
+        flat: Optional[bool] = None,
+        q: Optional[List[Any]] = None,
+        values: bool = False
+    ) -> Any:
+        """
+        Retrieve schemes data based on provided filters and options.
+
+        Args:
+            db (AsyncSession): Asynchronous SQLAlchemy session.
+            cols (Optional[List[str]]): Specific columns to retrieve.
+            order_by (str): Column name to order by. Prefix with '-' for descending.
+            allow_deprecated (bool): Whether to include deprecated schemes.
+            allow_null_tpids (bool): Whether to include schemes with null third_party_id.
+            flat (Optional[bool]): If True and cols has one column, return flat list.
+            q (Optional[List[Any]]): Additional SQLAlchemy filter conditions.
+            values (bool): If True, return dictionaries instead of ORM objects.
+
+        Returns:
+            Any: Retrieved schemes data.
+        """
+        filters = []
+        if q:
+            filters.extend(q)
+        if not allow_null_tpids:
+            filters.append(Scheme.third_party_id.isnot(None))
+        if not allow_deprecated:
+            filters.append(Scheme.deprecated_at.is_(None))
+
+        # Determine order direction
+        descending = False
+        if order_by.startswith('-'):
+            descending = True
+            order_column_name = order_by[1:]
+        else:
+            order_column_name = order_by
+
+        # Get the column object from the Scheme model
+        try:
+            order_column = getattr(Scheme, order_column_name)
+        except AttributeError:
+            raise ValueError(f"Invalid order_by column: {order_column_name}")
+
+        # Apply ordering
+        if descending:
+            order_clause = order_column.desc()
+        else:
+            order_clause = order_column.asc()
+
+        # Build the base query
+        if cols:
+            # Ensure all specified columns exist in Scheme model
+            try:
+                selected_columns = [getattr(Scheme, col) for col in cols]
+            except AttributeError as e:
+                raise ValueError(f"Invalid column specified: {e}")
+            query = select(*selected_columns).where(and_(*filters)).order_by(order_clause)
+        else:
+            query = select(Scheme).where(and_(*filters)).order_by(order_clause)
+
+        # Execute the query
+        result = await db.execute(query)
+
+        if cols:
+            if values or isinstance(cols, set):
+                # Return list of dictionaries
+                schemes = result.mappings().all()
+                return schemes
+            else:
+                if flat is None:
+                    flat = len(cols) == 1
+                rows = result.all()
+                if flat:
+                    # Return flat list of values from the first column
+                    return [row[0] for row in rows]
+                else:
+                    # Return list of tuples
+                    return rows
+        else:
+            schemes = result.scalars().all()
+            if values:
+                # Return list of dictionaries
+                return [scheme.__dict__ for scheme in schemes]
+            else:
+                # Return ORM objects
+                return schemes

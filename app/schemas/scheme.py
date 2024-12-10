@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator, validator, BaseModel
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
@@ -35,6 +35,19 @@ class TaxationType(str, Enum):
     Equity = 'E'
     Debt = 'D'
 
+class SchemeIdType(str, Enum):
+    WSchemeCode = 'wschemecode'
+    ISIN = 'isin'
+    WPC = 'wpc'
+    SchemeCode = 'scheme-code'
+    TPID = 'tp-id'
+    ThirdPartyId = 'third-party-id'
+
+class ResolveResultSchema(BaseSettings):
+    resolved: Dict[str, Any] = {}
+    resolved_new_wpcs: Dict[str, Any] = {}
+    unresolved: List[str] = []
+    
 class SchemeIDGenerator(BaseSettings):
     generated_id: int
     class Config:
@@ -292,3 +305,27 @@ class SchemeHoldingSerializer(BaseSettings):
         return v
 
 SchemeResponse = SchemeSerializer
+
+
+class InvestmentTypeChoices:
+    ONETIME = "onetime"
+    SIP = "sip"
+    
+
+class ReturnsRequest(BaseModel):
+    id_type: str
+    id_value: str
+    amount: int = Field(gt=0)
+    period: int = Field(gt=0, alias='n_years')
+    investment_type: str
+    sip_day: Optional[int] = Field(default=None, ge=1, le=28)
+    
+    
+class ReturnsData(BaseModel):
+    invested_value: Optional[float]
+    current_value: Optional[float]
+    xirr: Optional[float]
+    xirr_percentage: Optional[float]
+    absolute_returns: Optional[float]
+    absolute_returns_percentage: Optional[float]
+    returns_details: List[SchemeHistNavDataSchema]

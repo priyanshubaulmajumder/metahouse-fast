@@ -363,18 +363,17 @@ class SchemeHolding(Base):
     )
 
 class WSchemeCodeWPCMapping(Base):
-    __tablename__ = "wscheme_code_wpc_mapping"
+    __tablename__ = "funnal_wschemecodewpcmapping"
     __table_args__ = (
-        Index('ix_wwm_wsc', 'wschemecode'),
-        Index('ix_wwm_wpc', 'wpc'),
-        {'extend_existing': True}
+        Index('ix_swm_sc_428', 'scheme_code'),
+        Index('ix_swm_wpc_941', 'wpc')
     )
-
-    external_id = Column(WealthyExternalIdField(prefix="wsc_wpc_map_"), primary_key=True)
-    wschemecode = Column(String(28), nullable=False)
+    wschemecode = Column(String(28))
+    external_id = Column(WealthyExternalIdField(prefix="sc_wpc_map_"), primary_key=True)
+    scheme_code = Column(String(20), nullable=False)
     wpc = Column(String(12), nullable=False)
     hidden = Column(Boolean, default=False)
-
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class SchemeCodeWPCMapping(Base):
@@ -384,7 +383,7 @@ class SchemeCodeWPCMapping(Base):
     scheme_code = Column(String(20), nullable=False)
     wpc = Column(String(12), nullable=False)
     hidden = Column(Boolean, default=False)
-
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     __table_args__ = (
         Index('ix_swm_sc', 'scheme_code'),
         Index('ix_swm_wpc', 'wpc'),
@@ -454,4 +453,19 @@ class WPCToTWPCMapping(Base):
         UniqueConstraint('wpc', 'target_wpc', name='uq_wpc_target_wpc'),
         Index('ix_wwm_wpc_674', 'wpc'),
         Index('ix_wwm_twpc_292', 'target_wpc'),
+    )
+    
+class ISINWPCMapping(Base):
+    __tablename__ = "funnal_isinwpcmapping"
+    external_id = WealthyExternalIdField(prefix="isin_wpc_map_", primary_key=True)
+    isin = Column(String(20), nullable=False)
+    wpc = Column(String(12), nullable=False)
+    hidden = Column(Boolean, default=False)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('isin', 'wpc', name='uq_isin_wpc'),
+        Index('ix_iwm_isin_823', 'isin'),
+        Index('ix_iwm_wpc_591', 'wpc'),
     )

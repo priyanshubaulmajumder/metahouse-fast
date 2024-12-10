@@ -7,7 +7,9 @@ from app.core.config import settings
 from app.db.base import get_db, async_session
 import uvicorn
 import asyncio
-
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
+import aioredis
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -38,6 +40,8 @@ async def test_db(session: AsyncSession = Depends(get_db)):
 async def startup_event():
     async with async_session() as session:
         try:
+            redis = aioredis.from_url("redis://localhost:6379", encoding="utf8", decode_responses=True)
+            FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
             result = await session.execute(text("SELECT 1"))
             assert result.scalar() == 1
             print("Database connection successful.")
