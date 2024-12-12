@@ -457,7 +457,7 @@ class WPCToTWPCMapping(Base):
     
 class ISINWPCMapping(Base):
     __tablename__ = "funnal_isinwpcmapping"
-    external_id = WealthyExternalIdField(prefix="isin_wpc_map_", primary_key=True)
+    external_id = Column(WealthyExternalIdField(prefix="isin_wpc_map_", primary_key=True))
     isin = Column(String(20), nullable=False)
     wpc = Column(String(12), nullable=False)
     hidden = Column(Boolean, default=False)
