@@ -329,3 +329,60 @@ class ReturnsData(BaseModel):
     absolute_returns: Optional[float]
     absolute_returns_percentage: Optional[float]
     returns_details: List[SchemeHistNavDataSchema]
+
+class SchemeSchema(BaseModel):
+    wschemecode: str
+    wpc: str
+    # ...other fields...
+    class Config:
+        orm_mode = True
+
+class SchemeHoldingSchema(BaseModel):
+    wpc: str
+    holding_third_party_id: str
+    # ...other fields...
+    class Config:
+        orm_mode = True
+
+class SchemeAuditSchema(BaseModel):
+    id: int
+    wpc: Optional[str]
+    # ...other fields...
+    class Config:
+        orm_mode = True
+
+class WSchemeCodeWPCMappingSchema(BaseModel):
+    wschemecode: str
+    external_id: str
+    scheme_code: str
+    wpc: str
+    
+
+class SchemeCodeWPCMappingSchema(BaseModel):
+    external_id: str
+    scheme_code: str
+    wpc: str
+    
+
+class ParentChildSchemeMappingSchema(BaseModel):
+    external_id: str
+    child_wpc: str
+    parent_wpc: str
+
+class SectorToWSectorMappingSchema(BaseModel):
+    external_id: str
+    sector: str
+    wsector: str
+
+class WPCToTWPCMappingSchema(BaseModel):
+    external_id: str
+    wpc: str
+    target_wpc: str
+    
+
+class ISINWPCMappingSchema(BaseModel):
+    external_id: str
+    isin: str
+    wpc: str
+
+    created_at: datetime

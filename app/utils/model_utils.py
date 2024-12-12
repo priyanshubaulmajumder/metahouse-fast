@@ -1,7 +1,7 @@
 import shortuuid
 from sqlalchemy import String, TypeDecorator, Column, event
 from sqlalchemy.orm import declared_attr,Session
-
+from typing import Any
 # class WealthyExternalIdField(TypeDecorator):
 #     impl = String
 #     cache_ok = True
@@ -16,78 +16,38 @@ from sqlalchemy.orm import declared_attr,Session
 #         if self.auto and not value:
 #             return self.prefix + shortuuid.uuid()
 #         return value
-    
 
-# class WealthyExternalIdField(models.CharField):
-#     """
-#     A field which stores a Short UUID value in base57 format. This may also have
-#     the Boolean attribute 'auto' which will set the value on initial save to a
-#     new UUID value (calculated using shortuuid's default (uuid4)). Note that while all
-#     UUIDs are expected to be unique we enforce this with a DB constraint.
-#     """
+# app/utils/model_utils.py
 
-#     def shortuuid_generator(self):
-#         return self.prefix + shortuuid.uuid()
-
-#     def __init__(self, prefix='', auto=True, *args, **kwargs):
-#         self.auto = auto
-#         self.prefix = prefix
-#         # We store UUIDs in base57 format, which is fixed at 22 characters. Also added some extra characters for storing prefix.
-#         kwargs['max_length'] = 50
-#         if auto:
-#             # Do not let the user edit UUIDs if they are auto-assigned.
-#             kwargs['editable'] = False
-#             kwargs['unique'] = True
-
-#         super(WealthyExternalIdField, self).__init__(*args, **kwargs)
-
-#     def pre_save(self, model_instance, add):
-#         """
-#         This is used to ensure that we auto-set values if required.
-#         See CharField.pre_save
-#         """
-#         value = super(WealthyExternalIdField, self).pre_save(model_instance, add)
-#         if self.auto and not value:
-#             # Assign a new value for this attribute if required.
-#             value = str(self.shortuuid_generator())
-#             setattr(model_instance, self.attname, value)
-#         return value
-
-#     def formfield(self, **kwargs):
-#         if self.auto:
-#             return None
-#         return super(WealthyExternalIdField, self).formfield(**kwargs)
-
-
-
-#hehehehehehehehhhhhhhhhhhhhhhhhhhhhhehehehehehehehehehehehehehe
-
+import shortuuid
+from sqlalchemy import Column, String, event
+from typing import Any
 
 class WealthyExternalIdField:
     def __init__(self, prefix: str = '', auto: bool = True, *args: Any, **kwargs: Any):
-        """
-        A field which stores a Short UUID value in base57 format. This may also have
-        the Boolean attribute 'auto' which will set the value on initial save to a
-        new UUID value (calculated using shortuuid's default (uuid4)).
-        Note that while all UUIDs are expected to be unique; we enforce this with a DB constraint.
-        """
         self.auto = auto
         self.prefix = prefix
-        # We store UUIDs in base57 format, which is fixed at 22 characters.
-        # Also added extra characters for storing prefix.
         max_length = kwargs.pop('max_length', 50)
+        self._name = None  # Will be set in __set_name__
         self.column = Column(String(max_length), *args, **kwargs)
         if self.auto:
-            # Do not let the user edit UUIDs if they are auto-assigned.
+            self.column.default = self.shortuuid_generator
             self.column.unique = True
             self.column.nullable = False
-            self.column.default = self.shortuuid_generator
             self.column.primary_key = kwargs.get('primary_key', False)
+
+    def __set_name__(self, owner, name):
+        """
+        Called when the descriptor is assigned to an owner class.
+        """
+        self._name = name
+        self.column.name = name  # Assign the column name
+        if self.auto:
+            # Attach the event listener to the owner class (mapper)
             event.listen(
-                self.column,                                                
+                owner,
                 'before_insert',
-                self.generate_uuid_before_insert,
-                retval=True
+                self.generate_uuid_before_insert
             )
 
     def shortuuid_generator(self) -> str:
@@ -95,14 +55,24 @@ class WealthyExternalIdField:
 
     def generate_uuid_before_insert(self, mapper, connection, target):
         """
-        This is used to ensure that we auto-set values if required.
+        Event listener to generate the UUID before insert.
         """
-        value = getattr(target, self.column.name)
-        if self.auto and not value:
-            # Assign a new value for this attribute if required.
-            value = str(self.shortuuid_generator())
-            setattr(target, self.column.name, value)
-        return value
+        value = getattr(target, self._name)
+        if not value:
+            value = self.shortuuid_generator()
+            setattr(target, self._name, value)
+
+    def __get__(self, instance, owner):
+        """
+        Descriptor protocol to access the column attribute.
+        """
+        return self.column
+
+    def __set__(self, instance, value):
+        """
+        Descriptor protocol to set the value of the column.
+        """
+        setattr(instance, self._name, value)
 
     def __getattr__(self, item):
         # Delegate attribute access to the underlying Column

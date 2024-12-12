@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, Numeric, Date, DateTime, ForeignKey, Index, Integer, Text, Enum, JSON, UniqueConstraint, PrimaryKeyConstraint
+from sqlalchemy import Column, String, Boolean, Numeric, Date, DateTime, ForeignKey, Index, Integer, Text, Enum, JSON, UniqueConstraint, PrimaryKeyConstraint,func
 from sqlalchemy.orm import relationship,Session
 from sqlalchemy.sql import func
 from app.db.base import Base
@@ -9,8 +9,8 @@ from enum import Enum as PyEnum
 from decimal import Decimal
 import pytz
 from datetime import datetime
-from sqlalchemy.ext.declarative import declarative_base
-
+from sqlalchemy.ext.declarative import as_declarative, declared_attr
+from app.models.base import BaseModel
 class SchemeType(PyEnum):
     OPEN_ENDED = 'OE'
     CLOSE_ENDED = 'CE'
@@ -26,8 +26,7 @@ class SchemeIDGenerator(Base):
     generated_id = Column(Integer, primary_key=True, autoincrement=True)
 
 
-
-class Scheme(Base):
+class Scheme(BaseModel):
     __tablename__ = "funnal_scheme"
 
     wschemecode = Column(String(28), primary_key=True)
@@ -49,9 +48,16 @@ class Scheme(Base):
     display_name = Column(String(255), nullable=True)
     category = Column(String(255), nullable=True)
     scheme_type = Column(String(2), nullable=True)
+    # #scheme_type = models.CharField(
+    #     max_length=2, choices=SchemeType.choices, validators=[SchemeType.validator], null=True, blank=True
+    # )
     aum = Column(Numeric(20, 4), nullable=True)
     lock_in_time = Column(Integer, nullable=True)  # receiving always in years from CMOTS
     lock_in_unit = Column(String(2), nullable=True)
+    # lock_in_unit = models.CharField(
+    #     max_length=2, choices=LockInUnitType.choices,
+    #     validators=[LockInUnitType.validator], default=LockInUnitType.Years,
+    # )
     risk_o_meter_value = Column(String(50), nullable=True)
     fund_manager = Column(String(100), nullable=True)
     fund_manager_profile = Column(String, nullable=True)
@@ -81,9 +87,29 @@ class Scheme(Base):
     plan_type = Column(String(2), nullable=True)  # SchemeInvestmentType
     scheme_nature = Column(String(2), nullable=True)  # open/close ended, FundType
     fund_type = Column(String(2), nullable=True)  # MainCategory
+    # return_type = models.CharField(
+    #     max_length=2, default=SchemeReturnType.Growth, choices=SchemeReturnType.choices,
+    #     validators=[SchemeReturnType.validator], null=True, blank=True
+    # )  # InvestmentType
+    # plan_type = models.CharField(
+    #     max_length=2, default=PlanType.Others, choices=PlanType.choices, validators=[PlanType.validator],
+    #     null=True, blank=True
+    # )  # SchemeInvestmentType
+    # scheme_nature = models.CharField(
+    #     max_length=2, default=SchemeNature.Open, choices=SchemeNature.choices, validators=[SchemeNature.validator],
+    #     null=True, blank=True
+    # )  # open/close ended, FundType
+    # fund_type = models.CharField(
+    #     max_length=2, default=MainCategory.Equity, choices=MainCategory.choices, validators=[MainCategory.validator],
+    #     null=True, blank=True
+    # ) 
     amc = Column(String(3), nullable=True)  # use cmots_amc_mapping to figure out this value
     exit_load_time = Column(Integer, nullable=True)
     exit_load_unit = Column(String(2), nullable=True)
+    # exit_load_unit = models.CharField(
+    #     max_length=2, choices=ExitLoadUnitType.choices,
+    #     validators=[ExitLoadUnitType.validator], default=ExitLoadUnitType.Years,
+    # )
     exit_load_percentage = Column(Numeric(10, 6), nullable=True)
     exit_load_remarks = Column(String, nullable=True)
     latest_hnav_date = Column(DateTime, nullable=True)
@@ -227,7 +253,7 @@ class Scheme(Base):
 
 
 
-class SchemeAudit(Base):
+class SchemeAudit(BaseModel):
     __tablename__ = "funnal_schemeaudit"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -291,9 +317,6 @@ class SchemeAudit(Base):
     deprecate_reason = Column(String(254), nullable=True)
     requestor_code = Column(Text, nullable=True)
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    #ideally etao chilo na dont know why eta add hoyeche
-    #holdings = relationship("SchemeHolding", back_populates="scheme")
      
     @property
     def is_payment_allowed(self):
@@ -331,10 +354,10 @@ class SchemeAudit(Base):
         Index('ix_sa_category_79', 'category'),
     )
 
-class SchemeHolding(Base):
+class SchemeHolding(BaseModel):
     __tablename__ = "funnal_schemeholding"
 
-    external_id = Column(WealthyExternalIdField(prefix="sch_holding_"), primary_key=True)
+    external_id = WealthyExternalIdField(prefix="sch_holding_", primary_key=True).column
     #wpc = Column(String(12), ForeignKey("schemes.wpc"))
     wpc = Column(String(12))
     portfolio_date = Column(Date)
@@ -362,38 +385,38 @@ class SchemeHolding(Base):
         UniqueConstraint('wpc', 'holding_third_party_id', 'isin', name='uq_scheme_holding'),
     )
 
-class WSchemeCodeWPCMapping(Base):
+class WSchemeCodeWPCMapping(BaseModel):
     __tablename__ = "funnal_wschemecodewpcmapping"
     __table_args__ = (
         Index('ix_swm_sc_428', 'scheme_code'),
         Index('ix_swm_wpc_941', 'wpc')
     )
     wschemecode = Column(String(28))
-    external_id = Column(WealthyExternalIdField(prefix="sc_wpc_map_"), primary_key=True)
+    external_id = WealthyExternalIdField(prefix="sc_wpc_map_", primary_key=True).column
     scheme_code = Column(String(20), nullable=False)
     wpc = Column(String(12), nullable=False)
     hidden = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class SchemeCodeWPCMapping(Base):
+
+class SchemeCodeWPCMapping(BaseModel):
     __tablename__ = "funnal_schemecodewpcmapping"
 
-    external_id = Column(WealthyExternalIdField(prefix="sc_wpc_map_"), primary_key=True)
+    external_id = WealthyExternalIdField(prefix="sc_wpc_map_", primary_key=True).column
     scheme_code = Column(String(20), nullable=False)
     wpc = Column(String(12), nullable=False)
     hidden = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
     __table_args__ = (
         Index('ix_swm_sc', 'scheme_code'),
         Index('ix_swm_wpc', 'wpc'),
     )
 
 
-class ParentChildSchemeMapping(Base):
+class ParentChildSchemeMapping(BaseModel):
     __tablename__ = "funnal_parentchildschememapping"
 
-    external_id = Column(WealthyExternalIdField(prefix="par_ch_sch_map_"), primary_key=True)
+    external_id = WealthyExternalIdField(prefix="par_ch_sch_map_", primary_key=True).column
     child_wpc = Column(String(12), nullable=False)
     parent_wpc = Column(String(12), nullable=False)
 
@@ -403,10 +426,10 @@ class ParentChildSchemeMapping(Base):
         Index('ix_prc_pwpc_728', 'parent_wpc'),
     )
 
-class SectorToWSectorMapping(Base):
+class SectorToWSectorMapping(BaseModel):
     __tablename__ = "funnal_sectortowsectormapping"
 
-    external_id = Column(WealthyExternalIdField(prefix="sctwsc_map_"), primary_key=True)
+    external_id = WealthyExternalIdField(prefix="sctwsc_map_", primary_key=True).column
     sector = Column(String(60), unique=True)
     wsector = Column(String(35))
 
@@ -426,7 +449,7 @@ class SectorToWSectorMapping(Base):
 
 
 
-class SchemeHistNavData(Base):
+class SchemeHistNavData(BaseModel):
     __tablename__ = "funnal_schemehistnavdata"
 
     wpc = Column(String(12), nullable=False)
@@ -441,10 +464,10 @@ class SchemeHistNavData(Base):
         Index('idx_shnd_wpc_324', 'wpc'),
     )
     
-class WPCToTWPCMapping(Base):
+class WPCToTWPCMapping(BaseModel):
     __tablename__ = "funnal_wpctotwpcmapping"
 
-    external_id = Column(WealthyExternalIdField(prefix="wpc_wpc_map_"), primary_key=True)
+    external_id = WealthyExternalIdField(prefix="wpc_wpc_map_", primary_key=True).column
     wpc = Column(String(12), nullable=False)
     target_wpc = Column(String(12), nullable=False)
     hidden = Column(Boolean, default=False)
@@ -455,15 +478,15 @@ class WPCToTWPCMapping(Base):
         Index('ix_wwm_twpc_292', 'target_wpc'),
     )
     
-class ISINWPCMapping(Base):
+class ISINWPCMapping(BaseModel):
     __tablename__ = "funnal_isinwpcmapping"
-    external_id = Column(WealthyExternalIdField(prefix="isin_wpc_map_", primary_key=True))
+    external_id = WealthyExternalIdField(prefix="isin_wpc_map_", primary_key=True).column
     isin = Column(String(20), nullable=False)
     wpc = Column(String(12), nullable=False)
     hidden = Column(Boolean, default=False)
     
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    
     __table_args__ = (
         UniqueConstraint('isin', 'wpc', name='uq_isin_wpc'),
         Index('ix_iwm_isin_823', 'isin'),

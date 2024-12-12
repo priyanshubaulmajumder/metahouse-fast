@@ -5,7 +5,7 @@ from app.deps import get_db
 
 app = FastAPI()
 
-async def update_mappings_for_scheme_task(wpc: str, db: AsyncSession):
+async def  update_mappings_for_scheme_task(wpc: str, db: AsyncSession):
     from app.models.scheme import Scheme
     from app.services.scheme import SchemeUniqueIDsCacheService
 
