@@ -18,10 +18,10 @@ class ScreenerIDGenerator(Base):
 class Screener(BaseModel):
     __tablename__ = "funnal_screener"
 
-    wpc = Column(WealthyProductCodeField(prefix="SCR", Modal=ScreenerIDGenerator, max_length=13), primary_key=True)
+    wpc = WealthyProductCodeField(prefix="SCR", Modal=ScreenerIDGenerator, max_length=13, primary_key=True,nullable=True,unique=True)
     name = Column(String(254), nullable=False)
     source = Column(Enum(ScreenerSource), default=ScreenerSource.Wealthy)
-    category = Column(String(254), nullable=False)
+    category = Column(String(254), nullable=False,primary_key=True)
     category_display_name = Column(String(254), nullable=False)
     instrument_type = Column(String(254), nullable=False)
     description = Column(String, nullable=True)
@@ -32,8 +32,7 @@ class Screener(BaseModel):
     is_active = Column(Boolean, default=False)
     order = Column(Integer, default=1)
     category_order = Column(Integer, default=1)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
     __table_args__ = (
         Index('ix_screener_category', 'category'),
         Index('ix_screener_instrument_type', 'instrument_type'),
@@ -61,19 +60,18 @@ class Screener(BaseModel):
 '''
 
 class ScreenerInstrument(BaseModel):
-    __tablename__ = "funnal_screenerinstruments"
+    __tablename__ = "funnal_screenerinstrument"  # Corrected table name
 
     id = Column(Integer, primary_key=True, index=True)
-    screener_wpc = Column(String(13), nullable=False)
+    screener = Column(String(13), nullable=False)
     instruments = Column(JSON, nullable=False)
     cols = Column(JSON, default=list)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
 
 #    screener = relationship("Screener", back_populates="instruments")
 
     __table_args__ = (
-        Index('ix_screener_instrument_screener_wpc', 'screener_wpc'),
+        Index('ix_screener_instrument_screener_wpc', 'screener'),
     )
 
 

@@ -3,7 +3,7 @@ from sqlalchemy import select, func, or_
 from app.models.screener import Screener, ScreenerInstrument
 from app.models.stock import Stock
 from app.models.scheme import Scheme
-from app.schemas.screener import ScreenerResponse, ScreenerInstrumentResponse
+from app.schemas.screener import ScreenerResponse, ScreenerInstrumentResponse, ScreenerWithInstrumentsResponse
 from app.schemas.stock import StockResponse
 from app.schemas.scheme import SchemeSerializer as SchemeResponse
 from typing import List, Optional
@@ -46,7 +46,38 @@ class ScreenerService:
         except Exception as e:
             logger.error(f"Error retrieving Screener for ID: {screener_id} - {e}")
             raise
+
+    @staticmethod
+    async def get_screener_by_wpc(db: AsyncSession, screener_wpc: str) -> Optional[ScreenerResponse]:
+        result = await db.execute(
+            select(Screener).where(Screener.wpc == screener_wpc)
+        )
+        screener = result.scalar_one_or_none()
+        if screener:
+            return ScreenerResponse.from_orm(screener)
+        return None
+
+    @staticmethod
+    async def get_screener_with_instruments(db: AsyncSession, screener_wpc: str) -> Optional[ScreenerWithInstrumentsResponse]:
+        # Retrieve the Screener instance
+        screener_result = await db.execute(
+            select(Screener).where(Screener.wpc == screener_wpc)
+        )
+        screener = screener_result.scalar_one_or_none()
         
+        if not screener:
+            return None
+        
+        # Retrieve associated ScreenerInstruments
+        instruments_result = await db.execute(
+            select(ScreenerInstrument).where(ScreenerInstrument.screener == screener_wpc)
+        )
+        instruments = instruments_result.scalars().all()
+
+        return ScreenerWithInstrumentsResponse(
+            screener=ScreenerResponse.from_orm(screener),
+            instruments=[ScreenerInstrumentResponse.from_orm(instr) for instr in instruments]
+        )
         
     
     @staticmethod
@@ -109,4 +140,4 @@ class ScreenerService:
 
 # q1 q2 q3 q4 q5 q6 q7
 # q1 
-# q1 
+# q1

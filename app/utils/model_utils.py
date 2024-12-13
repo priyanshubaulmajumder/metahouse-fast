@@ -2,22 +2,6 @@ import shortuuid
 from sqlalchemy import String, TypeDecorator, Column, event
 from sqlalchemy.orm import declared_attr,Session
 from typing import Any
-# class WealthyExternalIdField(TypeDecorator):
-#     impl = String
-#     cache_ok = True
-
-#     def __init__(self, prefix='', auto=True, *args, **kwargs):
-#         self.auto = auto
-#         self.prefix = prefix
-#         kwargs['length'] = 50
-#         super(WealthyExternalIdField, self).__init__(*args, **kwargs)
-
-#     def process_bind_param(self, value, dialect):
-#         if self.auto and not value:
-#             return self.prefix + shortuuid.uuid()
-#         return value
-
-# app/utils/model_utils.py
 
 import shortuuid
 from sqlalchemy import Column, String, event
@@ -83,24 +67,48 @@ class WealthyExternalIdField:
 
     def __str__(self):
         return self.__repr__()
-    
-        
-class WealthyProductCodeField(TypeDecorator):
-    impl = String
-    cache_ok = True
 
-    def __init__(self, prefix='', Modal=None, auto=True, max_length=12, *args, **kwargs):
+
+from sqlalchemy import Column, String, event
+from sqlalchemy.orm import Session, attributes
+from typing import Any
+
+class WealthyProductCodeField:
+    def __init__(
+        self,
+        prefix: str = '',
+        Modal=None,
+        auto: bool = True,
+        max_length: int = 50,
+        *args: Any,
+        **kwargs: Any
+    ):
         self.auto = auto
         self.prefix = prefix
         self.Modal = Modal
-        self.max_length = max_length
-        kwargs['length'] = max_length
-        super(WealthyProductCodeField, self).__init__(*args, **kwargs)
+        self._name = None  # Will be set in __set_name__
+        self.column = Column(String(max_length), *args, **kwargs)
+        if self.auto:
+            self.column.nullable = False
+            self.column.unique = True
+            self.column.primary_key = kwargs.get('primary_key', False)
 
-    def process_bind_param(self, value, dialect):
-        if self.auto and not value:
-            return None  # Value will be generated in the model's __init__ or before_insert event
-        return value
+    def __set_name__(self, owner, name):
+        # Called when the descriptor is assigned to an owner class.
+        self._name = name
+        self.column.name = name
+        if self.auto:
+            # Attach the event listener to the owner class
+            event.listen(
+                owner,
+                'before_insert',
+                self.generate_code_before_insert
+            )
+        # Add the column to the class mapper
+        if hasattr(owner, '__mapper__'):
+            owner.__mapper__.add_property(name, self.column)
+        else:
+            setattr(owner, name, self.column)
 
     def id_generator(self, session: Session):
         if not self.Modal:
@@ -109,23 +117,33 @@ class WealthyProductCodeField(TypeDecorator):
         session.add(modal_instance)
         session.flush()
         generated_id = modal_instance.generated_id
-        return f"{self.prefix}{'0'*(self.max_length-len(self.prefix)-len(str(generated_id)))}{generated_id}"
+        zero_padding = '0' * (8 - len(str(generated_id)))
+        return f"{self.prefix}{zero_padding}{generated_id}"
 
-    def pre_save(self, model_instance, add):
-        """
-        This is used to ensure that we auto-set values if required.
-        """
-        value = getattr(model_instance, self.key)
+    def generate_code_before_insert(self, mapper, connection, target):
+        # Event listener to generate the code before insert.
+        value = getattr(target, self._name)
         if self.auto and not value:
-            session = Session.object_session(model_instance)
+            session = Session.object_session(target)
+            if session is None:
+                raise Exception("Session not found. Cannot generate code.")
             value = str(self.id_generator(session))
-            setattr(model_instance, self.key, value)
-        return value
+            setattr(target, self._name, value)
 
-    def formfield(self, **kwargs):
-        if self.auto:
-            return None
-        return super(WealthyProductCodeField, self).formfield(**kwargs)
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self.column
+        # Access the value directly from the instance state
+        return attributes.instance_state(instance).dict.get(self._name)
+
+    def __set__(self, instance, value):
+        # Set the value directly in the instance state
+        attributes.instance_state(instance).dict[self._name] = value
+
+    def __getattr__(self, item):
+        # Delegate attribute access to the underlying Column.
+        return getattr(self.column, item)
+    
     
 def generate_wealthy_stock_code(stock):
     if stock.isin:
@@ -144,3 +162,4 @@ def generate_wealthy_mf_code(fund):
     else:
         wealthy_code = "wsc_" + shortuuid.uuid()
     return wealthy_code
+

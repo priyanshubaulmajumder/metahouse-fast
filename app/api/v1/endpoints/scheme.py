@@ -136,15 +136,15 @@ async def get_parent_child_scheme_mapping(
         return []
     return mappings
 
-@router.get("/sector-to-wsector-mapping/{wpc}/", response_model=List[SectorToWSectorMappingSchema])
+@router.get("/sector-to-wsector-mapping/{sector}/", response_model=List[SectorToWSectorMappingSchema])
 async def get_sector_to_wsector_mapping(
-    wpc: str, db: AsyncSession = Depends(get_idb)
+    sector: str, db: AsyncSession = Depends(get_idb)
 ):
-    logger.debug(f"Fetching SectorToWSectorMapping for WPC: {wpc}")
-    result = await db.execute(select(SectorToWSectorMapping).where(SectorToWSectorMapping.wpc == wpc))
+    logger.debug(f"Fetching SectorToWSectorMapping for WPC: {sector}")
+    result = await db.execute(select(SectorToWSectorMapping).where(SectorToWSectorMapping.sector == sector))
     mappings = result.scalars().all()
     if not mappings:
-        logger.debug(f"No SectorToWSectorMapping found for WPC: {wpc}")
+        logger.debug(f"No SectorToWSectorMapping found for WPC: {sector}")
         return []
     return mappings
 

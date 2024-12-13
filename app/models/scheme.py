@@ -30,7 +30,7 @@ class Scheme(BaseModel):
     __tablename__ = "funnal_scheme"
 
     wschemecode = Column(String(28), primary_key=True)
-    wpc =   WealthyProductCodeField(prefix="MF", Modal=SchemeIDGenerator, max_length=12)
+    wpc =   WealthyProductCodeField(prefix="MF", Modal=SchemeIDGenerator, max_length=12, unique = True,nullable=True)
     third_party_id = Column(String(10), nullable=True)  # CMOTS equivalent mf_cocode, used to determine amc
     isin = Column(String(20), nullable=True)
     isin_reinvestment = Column(String(20), nullable=True)
@@ -388,12 +388,11 @@ class SchemeHolding(BaseModel):
 class WSchemeCodeWPCMapping(BaseModel):
     __tablename__ = "funnal_wschemecodewpcmapping"
     __table_args__ = (
-        Index('ix_swm_sc_428', 'scheme_code'),
+        Index('ix_wwm_wsc_610', 'wschemecode'),
         Index('ix_swm_wpc_941', 'wpc')
     )
     wschemecode = Column(String(28))
     external_id = WealthyExternalIdField(prefix="sc_wpc_map_", primary_key=True).column
-    scheme_code = Column(String(20), nullable=False)
     wpc = Column(String(12), nullable=False)
     hidden = Column(Boolean, default=False)
 

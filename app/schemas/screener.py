@@ -1,5 +1,4 @@
-from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -9,7 +8,7 @@ class ScreenerSource(str, Enum):
     CMOTS = 'cmots'
     MorningStar = 'morning_star'
 
-class ScreenerBase(BaseSettings):
+class ScreenerBase(BaseModel):
     name: str = Field(..., max_length=254)
     source: ScreenerSource = Field(default=ScreenerSource.Wealthy)
     category: str = Field(..., max_length=254)
@@ -24,6 +23,8 @@ class ScreenerBase(BaseSettings):
     order: int = Field(default=1)
     category_order: int = Field(default=1)
 
+    model_config = ConfigDict(from_attributes=True)
+
 class ScreenerCreate(ScreenerBase):
     pass
 
@@ -35,35 +36,36 @@ class ScreenerInDB(ScreenerBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ScreenerResponse(ScreenerInDB):
     pass
 
-class ScreenerInstrumentBase(BaseSettings):
+class ScreenerInstrumentBase(BaseModel):
     instruments: List[str] = Field(...)
     cols: List[str] = Field(default_factory=list)
+    screener: str  # Changed from 'screener_wpc' to 'screener'
+
+    model_config = ConfigDict(from_attributes=True)
 
 class ScreenerInstrumentCreate(ScreenerInstrumentBase):
-    screener_wpc: str
+    pass
 
 class ScreenerInstrumentUpdate(ScreenerInstrumentBase):
     pass
 
 class ScreenerInstrumentInDB(ScreenerInstrumentBase):
     id: int
-    screener_wpc: str
+    screener: str  # Changed from 'screener_wpc' to 'screener'
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ScreenerInstrumentResponse(ScreenerInstrumentInDB):
     pass
 
-class WSchemeCodeWPCMappingBase(BaseSettings):
+class WSchemeCodeWPCMappingBase(BaseModel):
     wschemecode: str = Field(..., max_length=28)
     wpc: str = Field(..., max_length=12)
     hidden: bool = Field(default=False)
@@ -83,7 +85,7 @@ class WSchemeCodeWPCMappingInDB(WSchemeCodeWPCMappingBase):
 class WSchemeCodeWPCMappingResponse(WSchemeCodeWPCMappingInDB):
     pass
 
-class ISINWPCMappingBase(BaseSettings):
+class ISINWPCMappingBase(BaseModel):
     isin: str = Field(..., max_length=20)
     wpc: str = Field(..., max_length=12)
     hidden: bool = Field(default=False)
@@ -103,7 +105,7 @@ class ISINWPCMappingInDB(ISINWPCMappingBase):
 class ISINWPCMappingResponse(ISINWPCMappingInDB):
     pass
 
-class SchemeCodeWPCMappingBase(BaseSettings):
+class SchemeCodeWPCMappingBase(BaseModel):
     scheme_code: str = Field(..., max_length=20)
     wpc: str = Field(..., max_length=12)
     hidden: bool = Field(default=False)
@@ -123,7 +125,13 @@ class SchemeCodeWPCMappingInDB(SchemeCodeWPCMappingBase):
 class SchemeCodeWPCMappingResponse(SchemeCodeWPCMappingInDB):
     pass
 
-class ScreenerListResponse(BaseSettings):
+class ScreenerListResponse(BaseModel):
     id: str
     name: str
     screeners: List[ScreenerResponse]
+
+class ScreenerWithInstrumentsResponse(BaseModel):
+    screener: ScreenerResponse  # Ensure this field exists
+    instruments: List[ScreenerInstrumentResponse]
+    
+    model_config = ConfigDict(from_attributes=True)

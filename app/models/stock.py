@@ -2,7 +2,7 @@
 from sqlalchemy import Column, Float, String, Boolean, Numeric, Date, DateTime, ForeignKey, Index, Integer, Text, Enum, JSON, UniqueConstraint, event
 from sqlalchemy.orm import relationship, object_session
 from sqlalchemy.sql import func
-from app.db.base import Base
+from app.db.BaseModel import BaseModel
 from app.utils.model_utils import WealthyProductCodeField, WealthyExternalIdField, generate_wealthy_stock_code
 from decimal import Decimal
 from enum import Enum as PyEnum
@@ -245,6 +245,7 @@ from app.db.base import Base
 from app.utils.model_utils import WealthyProductCodeField, WealthyExternalIdField, generate_wealthy_stock_code
 from decimal import Decimal
 from enum import Enum as PyEnum
+from app.models.base import BaseModel
 
 class StockCategory(PyEnum):
     LARGE_CAP = 'L'
@@ -255,11 +256,11 @@ class StockIDGenerator(Base):
     __tablename__ = "funnal_stockidgenerator"
     generated_id = Column(Integer, primary_key=True, autoincrement=True)
 
-class Stock(Base):
+class Stock(BaseModel):
     __tablename__ = "funnal_stock"
 
     wstockcode = Column(String(28), primary_key=True)
-    wpc = Column(WealthyProductCodeField("ST", StockIDGenerator, max_length=12), unique=True, nullable=True)
+    wpc = WealthyProductCodeField("ST", StockIDGenerator, max_length=12, unique=True, nullable=True).column
     third_party_id = Column(String(10))
     name = Column(String(256))
     bse_token = Column(String(50), nullable=True)
@@ -343,7 +344,7 @@ class Stock(Base):
             return None
         return f"https://broking-public.s3.ap-south-1.amazonaws.com/stocks/{self.isin}.png"
 
-class StockCachedNSEHPriceData(Base):
+class StockCachedNSEHPriceData(BaseModel):
     __tablename__ = "funnal_stockcachednsehpricedata"
 
     wstockcode = Column(String(28), primary_key=True)
@@ -358,7 +359,7 @@ class StockCachedNSEHPriceData(Base):
         Index('ix_stock_nhp_thid_party_id_1', 'third_party_id'),
     )
 
-class StockCachedBSEHPriceData(Base):
+class StockCachedBSEHPriceData(BaseModel):
     __tablename__ = "funnal_stockcachedbsehpricedata"
 
     wstockcode = Column(String(28), primary_key=True)
@@ -373,7 +374,7 @@ class StockCachedBSEHPriceData(Base):
         Index('ix_stock_bhp_thid_party_id_1', 'third_party_id'),
     )
 
-class StockNSEHistPriceData(Base):
+class StockNSEHistPriceData(BaseModel):
     __tablename__ = "funnal_stocknsehistpricedata"
     
     id = Column(Integer, primary_key=True)
@@ -395,7 +396,7 @@ class StockNSEHistPriceData(Base):
         UniqueConstraint('wstockcode', 'price_date', name='uq_snsehp_wstockcode_price_date'),
     )
 
-class StockBSEHistPriceData(Base):
+class StockBSEHistPriceData(BaseModel):
     __tablename__ = "funnal_stockbsehistpricedata"
 
     id = Column(Integer, primary_key=True)
@@ -417,7 +418,7 @@ class StockBSEHistPriceData(Base):
         UniqueConstraint('wstockcode', 'price_date', name='uq_sbsehp_wstockcode_price_date'),
     )
 
-class StockManagementInfo(Base):
+class StockManagementInfo(BaseModel):
     __tablename__ = "funnal_stockmanagementinfo"
 
     wstockcode = Column(String(28), primary_key=True)
@@ -435,7 +436,7 @@ class StockManagementInfo(Base):
         Index('ix_smi_wstockcode_11', 'wstockcode'),
     )
     
-class StockWCategoryMapping(Base):
+class StockWCategoryMapping(BaseModel):
     __tablename__ = "funnal_stockwcategorymapping"
 
     id = Column(Integer, primary_key=True)
