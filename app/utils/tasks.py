@@ -1,7 +1,8 @@
 from fastapi import FastAPI, BackgroundTasks, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from app.deps import get_db
+from app.db.base import get_idb
+#from app.utils.ScoutService import ScoutService
 
 app = FastAPI()
 
@@ -32,11 +33,11 @@ async def reset_cache_keys_affected_by_scheme_update_task(wpc: str, db: AsyncSes
         await CacheKeysService.reset_keys_affected_by_scheme_update(sa_obj)
 
 @app.post("/update_mappings_for_scheme/")
-async def update_mappings_for_scheme(wpc: str, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+async def update_mappings_for_scheme(wpc: str, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_idb)):
     background_tasks.add_task(update_mappings_for_scheme_task, wpc, db)
     return {"message": "Task to update mappings for scheme has been initiated."}
 
 @app.post("/reset_cache_keys_affected_by_scheme_update/")
-async def reset_cache_keys_affected_by_scheme_update(wpc: str, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
+async def reset_cache_keys_affected_by_scheme_update(wpc: str, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_idb)):
     background_tasks.add_task(reset_cache_keys_affected_by_scheme_update_task, wpc, db)
     return {"message": "Task to reset cache keys affected by scheme update has been initiated."}

@@ -42,12 +42,19 @@ class SchemeIdType(str, Enum):
     SchemeCode = 'scheme-code'
     TPID = 'tp-id'
     ThirdPartyId = 'third-party-id'
-
-class ResolveResultSchema(BaseSettings):
-    resolved: Dict[str, Any] = {}
-    resolved_new_wpcs: Dict[str, Any] = {}
-    unresolved: List[str] = []
     
+    @classmethod
+    def values(cls):
+        return [item.value for item in cls]
+
+class ResolveResultSchema(BaseModel):
+    resolved: Dict[str, str] = Field(default_factory=dict)
+    resolved_new_wpcs: Dict[str, str] = Field(default_factory=dict)
+    unresolved: List[str] = Field(default_factory=list)
+
+    class Config:
+        orm_mode = True
+
 class SchemeIDGenerator(BaseSettings):
     generated_id: int
     class Config:
@@ -132,7 +139,8 @@ class SchemeNature(BaseSettings):
 
 
 class Scheme(BaseSettings):
-    id: int
+    
+    
     name: str
     third_party_id: str
     isin: Optional[str]
@@ -307,10 +315,13 @@ class SchemeHoldingSerializer(BaseSettings):
 SchemeResponse = SchemeSerializer
 
 
-class InvestmentTypeChoices:
-    ONETIME = "onetime"
-    SIP = "sip"
+class InvestmentTypeChoices(str, Enum):
+    ONETIME = 'onetime'
+    SIP = 'sip'
     
+    @classmethod
+    def values(cls):
+        return [item.value for item in cls]
 
 class ReturnsRequest(BaseModel):
     id_type: str
@@ -467,7 +478,7 @@ class SchemeHoldingSchema(BaseModel):
         orm_mode = True
 
 class SchemeAuditSchema(BaseModel):
-    id: int
+    
     wpc: Optional[str]
     # ...other fields...
     class Config:

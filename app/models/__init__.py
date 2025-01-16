@@ -21,8 +21,6 @@ from app.models.stock import (
     StockCategory,
     StockWCategoryMapping,
     StockManagementInfo,
-    StockCachedNSEHPriceData,
-    StockCachedBSEHPriceData,
     StockNSEHistPriceData,
     StockBSEHistPriceData,  
 )

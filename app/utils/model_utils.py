@@ -2,7 +2,7 @@ import shortuuid
 from sqlalchemy import String, TypeDecorator, Column, event
 from sqlalchemy.orm import declared_attr,Session
 from typing import Any
-
+from sqlmodel import Field
 import shortuuid
 from sqlalchemy import Column, String, event
 from typing import Any
@@ -11,14 +11,19 @@ class WealthyExternalIdField:
     def __init__(self, prefix: str = '', auto: bool = True, *args: Any, **kwargs: Any):
         self.auto = auto
         self.prefix = prefix
-        max_length = kwargs.pop('max_length', 50)
+        unique = kwargs.pop('unique', True)
+        nullable = kwargs.pop('nullable', False)
+        primary_key= kwargs.pop('primary_key', False)
+        
         self._name = None  # Will be set in __set_name__
-        self.column = Column(String(max_length), *args, **kwargs)
+        self.column = Field( unique = unique , nullable = nullable, primary_key = primary_key)
         if self.auto:
             self.column.default = self.shortuuid_generator
-            self.column.unique = True
-            self.column.nullable = False
-            self.column.primary_key = kwargs.get('primary_key', False)
+            event.listen(
+                self.__class__,
+                'before_insert',
+                self.generate_uuid_before_insert
+            )
 
     def __set_name__(self, owner, name):
         """
@@ -26,13 +31,8 @@ class WealthyExternalIdField:
         """
         self._name = name
         self.column.name = name  # Assign the column name
-        if self.auto:
+
             # Attach the event listener to the owner class (mapper)
-            event.listen(
-                owner,
-                'before_insert',
-                self.generate_uuid_before_insert
-            )
 
     def shortuuid_generator(self) -> str:
         return self.prefix + shortuuid.uuid()
@@ -58,10 +58,6 @@ class WealthyExternalIdField:
         """
         setattr(instance, self._name, value)
 
-    def __getattr__(self, item):
-        # Delegate attribute access to the underlying Column
-        return getattr(self.column, item)
-
     def __repr__(self):
         return f"WealthyExternalIdField(prefix='{self.prefix}', auto={self.auto})"
 
@@ -79,23 +75,25 @@ class WealthyProductCodeField:
         prefix: str = '',
         Modal=None,
         auto: bool = True,
-        max_length: int = 50,
         *args: Any,
         **kwargs: Any
     ):
-        self.auto = auto
+        # Remove Django-specific kwargs (e.g. null, blank) before passing to Column
+        kwargs.pop('null', None)
+        kwargs.pop('blank', None)
         self.prefix = prefix
         self.Modal = Modal
+        self.auto = auto
         self._name = None  # Will be set in __set_name__
-        self.column = Column(String(max_length), *args, **kwargs)
-        if self.auto:
-            self.column.nullable = False
-            self.column.unique = True
-            self.column.primary_key = kwargs.get('primary_key', False)
+        # Save these so we can create the Column in __set_name__
+        self._args = args
+        self._kwargs = kwargs
 
     def __set_name__(self, owner, name):
         # Called when the descriptor is assigned to an owner class.
         self._name = name
+        # Create the Column at this point
+        self.column = Column(*self._args, **self._kwargs)
         self.column.name = name
         if self.auto:
             # Attach the event listener to the owner class
@@ -104,7 +102,6 @@ class WealthyProductCodeField:
                 'before_insert',
                 self.generate_code_before_insert
             )
-        # Add the column to the class mapper
         if hasattr(owner, '__mapper__'):
             owner.__mapper__.add_property(name, self.column)
         else:
@@ -127,7 +124,7 @@ class WealthyProductCodeField:
             session = Session.object_session(target)
             if session is None:
                 raise Exception("Session not found. Cannot generate code.")
-            value = str(self.id_generator(session))
+            value = self.id_generator(session)
             setattr(target, self._name, value)
 
     def __get__(self, instance, owner):
@@ -140,9 +137,44 @@ class WealthyProductCodeField:
         # Set the value directly in the instance state
         attributes.instance_state(instance).dict[self._name] = value
 
-    def __getattr__(self, item):
-        # Delegate attribute access to the underlying Column.
-        return getattr(self.column, item)
+
+# class WealthyProductCodeField(models.CharField):
+
+#     def id_generator(self):
+#         if not self.Modal:
+#             return
+#         generated_id = self.Modal.objects.create().generated_id
+#         return f"{self.prefix}{'0'*(8-len(str(generated_id)))}{generated_id}"
+
+#     def __init__(self, prefix='', Modal=None, auto=True, *args, **kwargs):
+#         self.auto = auto
+#         self.prefix = prefix
+#         self.Modal = Modal
+#         if auto:
+#             kwargs['editable'] = False
+
+#         super(WealthyProductCodeField, self).__init__(*args, **kwargs)
+
+#     def pre_save(self, model_instance, add):
+#         """
+#         This is used to ensure that we auto-set values if required.
+#         See CharField.pre_save
+#         """
+#         value = super(WealthyProductCodeField, self).pre_save(model_instance, add)
+#         if self.auto and not value:
+#             # Assign a new value for this attribute if required.
+#             if not self.Modal:
+#                 return
+#             value = str(self.id_generator())
+#             setattr(model_instance, self.attname, value)
+#         return value
+
+#     def formfield(self, **kwargs):
+#         if self.auto:
+#             return None
+#         return super(WealthyProductCodeField, self).formfield(**kwargs)
+
+
     
     
 def generate_wealthy_stock_code(stock):

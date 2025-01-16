@@ -19,7 +19,11 @@ class WHistoricalStockPricesField(str, Enum):
 class FalconExchange(int, Enum):
     NSE = 1
     BSE = 3
-
+class StockCategory(str, Enum):
+    LARGE_CAP = 'L'
+    MID_CAP = 'M'
+    SMALL_CAP = 'S'
+    
 class WResultType(str, Enum):
     Standalone = 'S'
     Consolidated = 'C'
@@ -105,3 +109,8 @@ class WHistoricalNAVField(str, Enum):
     NAVDate = "nav_date"
     NAV = "nav"
     AdjNAV = "adj_nav"
+
+
+class DivTypeChoices(str, Enum):
+    Payout = 'P'
+    ReInvestment = 'R'

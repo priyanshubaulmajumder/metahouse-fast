@@ -4,20 +4,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from app.models.scheme import SchemeHistNavData
 from app.schemas.scheme import SchemeHistNavDataSchema
-from app.services.service import ReturnsCalculator,SchemeHistNavService
+from app.services.service import ReturnsCalculator, SchemeHistNavService
 from app.db.base import get_db, get_idb
 import logging
 from sqlalchemy import select
+
 from app.models.scheme import (
     Scheme,
     SchemeHolding,
     SchemeAudit,
     WSchemeCodeWPCMapping,
-    SchemeCodeWPCMapping,
     ParentChildSchemeMapping,
     SectorToWSectorMapping,
     WPCToTWPCMapping,
     ISINWPCMapping,
+    SchemeCodeWPCMapping
     # ...other models...
 )
 from app.schemas.scheme import (
@@ -30,6 +31,7 @@ from app.schemas.scheme import (
     SectorToWSectorMappingSchema,
     WPCToTWPCMappingSchema,
     ISINWPCMappingSchema,
+    ResolveResultSchema
     # ...other schemas...
 )
 
@@ -37,6 +39,7 @@ router = APIRouter()
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
+
 @router.get("/{id_type}/{id_value}/returns", response_model=dict)
 async def calculate_returns(
     request: Request, id_type: str, id_value: str, db: AsyncSession = Depends(get_idb)
@@ -45,7 +48,7 @@ async def calculate_returns(
         params = dict(request.query_params)
         params['id_type'] = id_type
         params['id_value'] = id_value
-        rc = ReturnsCalculator(data=params)
+        rc = await ReturnsCalculator.create(params, db=db)
         returns = await rc.calculate_returns(db)
         return returns
     except Exception as e:
@@ -70,6 +73,9 @@ async def get_scheme(
 ):
     logger.debug(f"Fetching scheme for WPC: {wpc}")
     result = await db.execute(select(Scheme).where(Scheme.wpc == wpc))
+    print(select(*[Scheme.wpc,Scheme.face_value]).where(Scheme.wpc == wpc))
+    #result = await db.execute(select(*[Scheme.wpc,Scheme.face_value]).where(Scheme.wpc == wpc))
+    result_list=list(result)
     scheme = result.scalar_one_or_none()
     if not scheme:
         logger.debug(f"No scheme found for WPC: {wpc}")
@@ -172,4 +178,3 @@ async def get_isin_wpc_mapping(
         return []
     return mappings
 
-# Similarly, add endpoints for other models

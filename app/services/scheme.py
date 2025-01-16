@@ -1,8 +1,8 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, or_
+from sqlalchemy import func, and_, or_, text
 from app.models.scheme import Scheme #SchemeHolding
 from app.crud.scheme import SchemeCreate, SchemeUpdate, SchemeHoldingCreate
-from typing import List, Optional
+from typing import List, Optional, Any
 from datetime import date, datetime
 from decimal import Decimal
 from collections import defaultdict
@@ -168,8 +168,85 @@ class SchemeService:
     def get_schemes_by_w_score_range(db: Session, min_score: Decimal, max_score: Decimal) -> List[Scheme]:
         return db.query(Scheme).filter(Scheme.w_score.between(min_score, max_score)).all()
     
+    @staticmethod
+    async def get_schemes_data(
+        db: AsyncSession,
+        cols: Optional[List[str]] = None,
+        order_by: str = '-created_at',
+        allow_deprecated: bool = False,
+        allow_null_tpids: bool = False,
+        flat: Optional[bool] = None,
+        q: Optional[List[Any]] = None,
+        values: bool = False
+    ) -> Any:
+        filters = []
+        if q:
+            filters.extend(q)
+        if not allow_null_tpids:
+            filters.append(Scheme.third_party_id.isnot(None))
+        if not allow_deprecated:
+            filters.append(Scheme.deprecated_at.is_(None))
 
+        # Determine order direction
+        descending = False
+        if order_by.startswith('-'):
+            descending = True
+            order_column_name = order_by[1:]
+        else:
+            order_column_name = order_by
 
+        # Get the column object from the Scheme model
+        try:
+            order_column = getattr(Scheme, order_column_name)
+        except AttributeError:
+            raise ValueError(f"Invalid order_by column: {order_column_name}")
+
+        # Apply ordering
+        if descending:
+            order_clause = order_column.desc()
+        else:
+            order_clause = order_column.asc()
+
+        # Build the base query
+        if cols:
+            # Ensure all specified columns exist in Scheme model
+            try:
+                selected_columns = [getattr(Scheme, col) for col in cols]
+            except AttributeError as e:
+                raise ValueError(f"Invalid column specified: {e}")
+            query = select(*selected_columns).where(and_(*filters)).order_by(order_clause)
+        else:
+            query = select(Scheme).where(and_(*filters)).order_by(order_clause)
+
+        # Execute the query
+        result = await db.execute(query)
+
+        if cols:
+            if values or isinstance(cols, set):
+                # Return list of dictionaries
+                schemes = result.mappings().all()
+                return schemes
+            else:
+                if flat is None:
+                    flat = len(cols) == 1
+                rows = result.all()
+                if flat:
+                    # Return flat list of values from the first column
+                    return [row[0] for row in rows]
+                else:
+                    # Return list of tuples
+                    return rows
+        else:
+            schemes = result.scalars().all()
+            if values:
+                # Return list of dictionaries
+                return [Scheme(**scheme.__dict__) for scheme in schemes]
+            else:
+                # Return ORM objects
+                return schemes
+            
+
+'''
 class SchemeUniqueIDsCacheService:
 
     @staticmethod
@@ -380,4 +457,4 @@ class SchemeUniqueIDsCacheService:
         for obj in objs:
             await cls.update_all_mappings_for_scheme(db, obj)
 
-
+'''
